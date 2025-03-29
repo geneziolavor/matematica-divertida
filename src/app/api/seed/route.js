@@ -5,90 +5,119 @@ import Pontuacao from '@/models/Pontuacao';
 import bcrypt from 'bcryptjs';
 import mongoose from 'mongoose';
 
-// Função para seed de dados
-export async function GET() {
+export async function GET(request) {
+  console.log("API de seed - Requisição recebida");
   try {
-    console.log("Iniciando seed de dados");
+    // Conectar ao banco de dados
+    console.log("Conectando ao MongoDB...");
     await dbConnect();
+    console.log("Conexão com MongoDB estabelecida");
     
-    // Verificar se já existem dados
-    const userCount = await User.countDocuments();
-    if (userCount > 0) {
-      return NextResponse.json({ message: 'Dados já existem no banco, evitando duplicação.' });
+    // Verificar se já existem usuários
+    const usuariosCount = await User.countDocuments();
+    console.log("Usuários existentes:", usuariosCount);
+    
+    if (usuariosCount > 0) {
+      return NextResponse.json({
+        message: "Dados iniciais já existem. Seed não executado.",
+        usuariosCount
+      });
     }
     
-    // Criar alguns usuários
-    console.log("Criando usuários");
+    // Criar usuários de exemplo
+    console.log("Criando usuários de seed...");
+    const senhaHash = await bcrypt.hash('senha123', 10);
     
-    const senhaHash = await bcrypt.hash("123456", 10);
-    
-    // Professor
-    const professor = new User({
-      nome: "Professor Demo",
-      email: "professor@teste.com",
-      senha: senhaHash,
-      tipo: "professor",
-      escola: "Escola Demonstração"
-    });
-    await professor.save();
-    
-    // Alunos
-    const alunos = [
-      { nome: "Ana Silva", email: "ana@teste.com", escola: "Escola Demonstração" },
-      { nome: "Pedro Costa", email: "pedro@teste.com", escola: "Escola Modelo" },
-      { nome: "Maria Oliveira", email: "maria@teste.com", escola: "Escola Futuro" },
-      { nome: "João Santos", email: "joao@teste.com", escola: "Escola Demonstração" },
-      { nome: "Lucia Ferreira", email: "lucia@teste.com", escola: "Escola Futuro" }
+    const usuarios = [
+      {
+        nome: 'Ana Silva',
+        email: 'ana@escola.com',
+        senha: senhaHash,
+        tipo: 'aluno',
+        escola: 'Escola Exemplo'
+      },
+      {
+        nome: 'Pedro Costa',
+        email: 'pedro@escola.com',
+        senha: senhaHash,
+        tipo: 'aluno',
+        escola: 'Escola Exemplo'
+      },
+      {
+        nome: 'Maria Oliveira',
+        email: 'maria@escola.com',
+        senha: senhaHash,
+        tipo: 'aluno',
+        escola: 'Escola Exemplo'
+      },
+      {
+        nome: 'João Santos',
+        email: 'joao@escola.com',
+        senha: senhaHash,
+        tipo: 'aluno',
+        escola: 'Escola Exemplo'
+      },
+      {
+        nome: 'Lucia Ferreira',
+        email: 'lucia@escola.com',
+        senha: senhaHash,
+        tipo: 'aluno',
+        escola: 'Escola Exemplo'
+      },
+      {
+        nome: 'Carlos Professor',
+        email: 'carlos@escola.com',
+        senha: senhaHash,
+        tipo: 'professor',
+        escola: 'Escola Exemplo'
+      }
     ];
     
-    const alunosCriados = [];
+    // Inserir usuários
+    console.log("Inserindo usuários no banco de dados...");
+    const usuariosCriados = await User.insertMany(usuarios);
+    console.log("Usuários criados:", usuariosCriados.length);
     
-    for (const alunoData of alunos) {
-      const aluno = new User({
-        nome: alunoData.nome,
-        email: alunoData.email,
-        senha: senhaHash,
-        tipo: "aluno",
-        escola: alunoData.escola
-      });
-      await aluno.save();
-      alunosCriados.push(aluno);
-    }
-    
-    // Criar pontuações
-    console.log("Criando pontuações");
-    
-    // IDs de desafios fictícios
-    const desafiosIds = ["1", "2", "3", "operacoes"];
-    
-    // Criar pontuações aleatórias para os alunos
+    // Criar algumas pontuações
+    console.log("Criando pontuações de exemplo...");
     const pontuacoes = [];
+    const desafiosIds = ['aritmetica', 'geometria', 'aleatorio'];
     
-    for (const aluno of alunosCriados) {
-      for (const desafioId of desafiosIds) {
-        if (Math.random() > 0.3) { // 70% de chance de ter feito o desafio
-          const pontuacao = new Pontuacao({
-            userId: aluno._id,
-            desafioId,
-            pontos: Math.floor(Math.random() * 500) + 100, // Entre 100 e 600 pontos
-            tempoConcluido: Math.floor(Math.random() * 300) + 60 // Entre 60 e 360 segundos
-          });
-          await pontuacao.save();
-          pontuacoes.push(pontuacao);
-        }
+    // Criar pontuações para cada aluno
+    for (let i = 0; i < 5; i++) { // Apenas os alunos
+      const userId = usuariosCriados[i]._id;
+      
+      // Cada aluno terá 1-3 pontuações aleatórias
+      const numPontuacoes = Math.floor(Math.random() * 3) + 1;
+      
+      for (let j = 0; j < numPontuacoes; j++) {
+        const desafioId = desafiosIds[Math.floor(Math.random() * desafiosIds.length)];
+        const pontos = Math.floor(Math.random() * 500) + 100;
+        const tempoConcluido = Math.floor(Math.random() * 300) + 60;
+        
+        pontuacoes.push({
+          userId,
+          desafioId,
+          pontos,
+          tempoConcluido
+        });
       }
     }
     
-    return NextResponse.json({ 
-      message: 'Dados de teste criados com sucesso',
-      stats: {
-        usuarios: alunosCriados.length + 1, // +1 pelo professor
-        pontuacoes: pontuacoes.length
-      }
-    });
+    // Inserir pontuações
+    console.log("Inserindo pontuações no banco de dados...");
+    const pontuacoesCriadas = await Pontuacao.insertMany(pontuacoes);
+    console.log("Pontuações criadas:", pontuacoesCriadas.length);
     
+    return NextResponse.json({
+      success: true,
+      message: "Seed executado com sucesso",
+      usuariosCriados: usuariosCriados.length,
+      pontuacoesCriadas: pontuacoesCriadas.length
+    });
   } catch (error) {
-    console.error("Erro ao criar seed:", error);
+    console.error("Erro na API de seed:", error);
+    console.error("Stack trace:", error.stack);
     return NextResponse.json({ error: error.message }, { status: 500 });
   }
 } 

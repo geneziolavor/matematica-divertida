@@ -24,6 +24,14 @@ const registerSchema = z.object({
 
 type RegisterFormData = z.infer<typeof registerSchema>;
 
+function RegistroContent() {
+  return (
+    <Suspense fallback={<div className="max-w-4xl mx-auto my-12 px-4 text-center">Carregando formulário de registro...</div>}>
+      <RegistroForm />
+    </Suspense>
+  );
+}
+
 function RegistroForm() {
   const [submitError, setSubmitError] = useState('');
   const [submitSuccess, setSubmitSuccess] = useState(false);
@@ -31,6 +39,8 @@ function RegistroForm() {
   const { register: registerUser, isLoading } = useAuth();
   const router = useRouter();
   const searchParams = useSearchParams();
+  const [escolaParam, setEscolaParam] = useState('');
+  const [tipoParam, setTipoParam] = useState<'aluno' | 'professor'>('aluno');
 
   const { register, handleSubmit, formState: { errors }, watch, setValue } = useForm<RegisterFormData>({
     resolver: zodResolver(registerSchema),
@@ -39,8 +49,10 @@ function RegistroForm() {
     }
   });
 
-  // Verificar se estamos vindo de um convite
+  // Verificar se estamos vindo de um convite de forma segura com useEffect
   useEffect(() => {
+    if (!searchParams) return;
+    
     const convite = searchParams.get('convite');
     const tipo = searchParams.get('tipo');
     
@@ -48,6 +60,7 @@ function RegistroForm() {
       try {
         // Decodificar o parâmetro de convite (simulado)
         const escolaConvite = atob(convite);
+        setEscolaParam(escolaConvite);
         setValue('escola', escolaConvite);
         setIsConvite(true);
       } catch (error) {
@@ -56,6 +69,7 @@ function RegistroForm() {
     }
     
     if (tipo && (tipo === 'aluno' || tipo === 'professor')) {
+      setTipoParam(tipo as 'aluno' | 'professor');
       setValue('tipo', tipo as 'aluno' | 'professor');
     }
   }, [searchParams, setValue]);
@@ -168,7 +182,7 @@ function RegistroForm() {
                     value="aluno"
                     {...register('tipo')}
                     className="mr-2"
-                    disabled={isConvite && tipoUsuario !== 'aluno'}
+                    disabled={isConvite && tipoParam !== 'aluno'}
                   />
                   <FaUserGraduate className="mr-1 text-[var(--primary)]" />
                   Aluno
@@ -179,7 +193,7 @@ function RegistroForm() {
                     value="professor"
                     {...register('tipo')}
                     className="mr-2"
-                    disabled={isConvite && tipoUsuario !== 'professor'}
+                    disabled={isConvite && tipoParam !== 'professor'}
                   />
                   <FaUserTie className="mr-1 text-[var(--primary)]" />
                   Professor
@@ -318,9 +332,5 @@ function RegistroForm() {
 }
 
 export default function Registro() {
-  return (
-    <Suspense fallback={<div className="max-w-4xl mx-auto my-12 px-4 text-center">Carregando formulário de registro...</div>}>
-      <RegistroForm />
-    </Suspense>
-  );
+  return <RegistroContent />;
 } 

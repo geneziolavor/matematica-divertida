@@ -16,8 +16,22 @@ import {
 } from 'react-icons/fa';
 import { useAuth } from '@/context/AuthContext';
 
+// Interface para os desafios
+interface Desafio {
+  id: number | string;
+  titulo: string;
+  nivel: string;
+  pontos: number;
+  completado: boolean;
+  categoria: string;
+  tempo: string;
+  descricao: string;
+  bloqueado?: boolean;
+  criadoPor?: 'sistema' | 'professor';
+}
+
 // Dados fictícios de desafios
-const desafios = [
+const desafios: Desafio[] = [
   {
     id: 1,
     titulo: "Números Primos",
@@ -26,7 +40,8 @@ const desafios = [
     completado: true,
     categoria: "Aritmética",
     tempo: "15 min",
-    descricao: "Descubra e identifique números primos em sequências divertidas."
+    descricao: "Descubra e identifique números primos em sequências divertidas.",
+    criadoPor: 'sistema'
   },
   {
     id: 2,
@@ -36,7 +51,8 @@ const desafios = [
     completado: true,
     categoria: "Operações",
     tempo: "20 min",
-    descricao: "Converta frações em decimais e resolva problemas práticos."
+    descricao: "Converta frações em decimais e resolva problemas práticos.",
+    criadoPor: 'sistema'
   },
   {
     id: 3,
@@ -46,7 +62,8 @@ const desafios = [
     completado: false,
     categoria: "Geometria",
     tempo: "15 min",
-    descricao: "Identifique formas geométricas e calcule áreas de figuras planas."
+    descricao: "Identifique formas geométricas e calcule áreas de figuras planas.",
+    criadoPor: 'sistema'
   },
   {
     id: 4,
@@ -56,7 +73,8 @@ const desafios = [
     completado: false,
     categoria: "Álgebra",
     tempo: "25 min",
-    descricao: "Resolva equações de primeiro grau e aplique em problemas práticos."
+    descricao: "Resolva equações de primeiro grau e aplique em problemas práticos.",
+    criadoPor: 'sistema'
   },
   {
     id: 5,
@@ -67,7 +85,8 @@ const desafios = [
     bloqueado: true,
     categoria: "Lógica",
     tempo: "30 min",
-    descricao: "Resolva problemas de lógica matemática que exigem raciocínio avançado."
+    descricao: "Resolva problemas de lógica matemática que exigem raciocínio avançado.",
+    criadoPor: 'sistema'
   },
   {
     id: 6,
@@ -77,7 +96,8 @@ const desafios = [
     completado: false,
     categoria: "Estatística",
     tempo: "20 min",
-    descricao: "Aprenda conceitos básicos de média, mediana e moda em conjuntos de dados."
+    descricao: "Aprenda conceitos básicos de média, mediana e moda em conjuntos de dados.",
+    criadoPor: 'sistema'
   },
   {
     id: 7,
@@ -87,7 +107,8 @@ const desafios = [
     completado: false,
     categoria: "Probabilidade",
     tempo: "25 min",
-    descricao: "Calcule a probabilidade de eventos em situações cotidianas."
+    descricao: "Calcule a probabilidade de eventos em situações cotidianas.",
+    criadoPor: 'sistema'
   },
   {
     id: 8,
@@ -98,7 +119,8 @@ const desafios = [
     bloqueado: true,
     categoria: "Álgebra",
     tempo: "30 min",
-    descricao: "Explore funções quadráticas e suas aplicações em problemas reais."
+    descricao: "Explore funções quadráticas e suas aplicações em problemas reais.",
+    criadoPor: 'sistema'
   }
 ];
 
@@ -108,6 +130,35 @@ export default function Desafios() {
   const [nivelFiltro, setNivelFiltro] = useState<string | null>(null);
   const { user, isLoading } = useAuth();
   const router = useRouter();
+  const [todosDesafios, setTodosDesafios] = useState(desafios);
+
+  // Carregar desafios criados por professores
+  useEffect(() => {
+    const desafiosProfessor = localStorage.getItem('desafiosProfessor');
+    if (desafiosProfessor) {
+      try {
+        const desafiosParsed = JSON.parse(desafiosProfessor);
+        
+        // Mapear os desafios do professor para o mesmo formato dos desafios predefinidos
+        const desafiosFormatados = desafiosParsed.map((d: any) => ({
+          id: d.id,
+          titulo: d.titulo,
+          nivel: d.nivel,
+          pontos: d.pontos,
+          completado: false,
+          categoria: d.categoria,
+          tempo: `${d.tempo} min`,
+          descricao: d.descricao,
+          criadoPor: 'professor'
+        }));
+        
+        // Combinar com os desafios predefinidos
+        setTodosDesafios([...desafios, ...desafiosFormatados]);
+      } catch (error) {
+        console.error('Erro ao carregar desafios do professor:', error);
+      }
+    }
+  }, []);
 
   // Redirecionar para login se não estiver autenticado
   useEffect(() => {
@@ -116,7 +167,7 @@ export default function Desafios() {
     }
   }, [user, isLoading, router]);
 
-  const desafiosFiltrados = desafios.filter(desafio => {
+  const desafiosFiltrados = todosDesafios.filter(desafio => {
     // Filtro principal
     let passou = true;
     if (filtro === 'completados') passou = !!desafio.completado;
@@ -135,11 +186,11 @@ export default function Desafios() {
     return passou;
   });
 
-  // Obter categorias únicas
-  const categorias = Array.from(new Set(desafios.map(d => d.categoria)));
+  // Obter categorias únicas de todos os desafios
+  const categorias = Array.from(new Set(todosDesafios.map(d => d.categoria)));
   
-  // Obter níveis únicos
-  const niveis = Array.from(new Set(desafios.map(d => d.nivel)));
+  // Obter níveis únicos de todos os desafios
+  const niveis = Array.from(new Set(todosDesafios.map(d => d.nivel)));
 
   if (isLoading) {
     return (
@@ -326,6 +377,11 @@ export default function Desafios() {
                               <FaLock className="mr-1" /> Bloqueado
                             </span>
                           )}
+                          {desafio.criadoPor === 'professor' && (
+                            <span className="ml-2 bg-[var(--secondary)] text-white px-2 py-1 rounded-full text-xs flex items-center">
+                              <FaChalkboardTeacher className="mr-1" /> Professor
+                            </span>
+                          )}
                         </div>
                         
                         <p className="text-gray-600 mt-1">{desafio.descricao}</p>
@@ -346,23 +402,13 @@ export default function Desafios() {
                         </div>
                       </div>
                       
-                      <div>
-                        {user.tipo === 'professor' ? (
-                          <Link 
-                            href={`/professor/desafios/${desafio.id}`}
-                            className="btn-secondary"
-                          >
-                            Editar
-                          </Link>
-                        ) : !desafio.bloqueado && (
-                          <Link 
-                            href={`/desafios/${desafio.id}`}
-                            className={`btn-${desafio.completado ? 'secondary' : 'primary'}`}
-                          >
-                            {desafio.completado ? 'Refazer' : 'Iniciar'}
-                          </Link>
-                        )}
-                      </div>
+                      <Link 
+                        href={desafio.bloqueado ? '#' : (desafio.criadoPor === 'professor' ? `/desafios/${desafio.id}` : `/desafios/${desafio.id}`)}
+                        className={`btn-primary mt-2 whitespace-nowrap ${desafio.bloqueado ? 'opacity-50 cursor-not-allowed' : ''}`}
+                        onClick={e => desafio.bloqueado && e.preventDefault()}
+                      >
+                        {desafio.completado ? 'Refazer' : 'Iniciar'}
+                      </Link>
                     </div>
                   </div>
                 ))

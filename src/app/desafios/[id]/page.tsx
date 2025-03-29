@@ -1,12 +1,19 @@
 'use client';
 
 import { useState, useEffect } from 'react';
-import Link from 'next/link';
 import { useParams, useRouter } from 'next/navigation';
-import { FaArrowLeft, FaClock, FaTrophy, FaCheck, FaTimes } from 'react-icons/fa';
-import { motion } from 'framer-motion';
+import Link from 'next/link';
+import { 
+  FaArrowLeft, 
+  FaClock, 
+  FaStar, 
+  FaTrophy, 
+  FaCheck,
+  FaTimes,
+  FaChalkboardTeacher 
+} from 'react-icons/fa';
+import { useAuth } from '@/context/AuthContext';
 
-// Tipo para as questões
 type Alternativa = {
   id: string;
   texto: string;
@@ -17,6 +24,19 @@ type Questao = {
   enunciado: string;
   alternativas: Alternativa[];
   respostaCorreta: string;
+};
+
+type Desafio = {
+  id: number | string;
+  titulo: string;
+  categoria: string;
+  nivel: string;
+  pontos: number;
+  tempo: number;
+  descricao: string;
+  questoes: Questao[];
+  professorId?: string;
+  criadoEm?: string;
 };
 
 // Dados fictícios de desafios
@@ -103,68 +123,87 @@ const desafiosMock = {
 export default function DesafioPage() {
   const params = useParams();
   const router = useRouter();
-  const id = Number(params.id);
+  const { user, isLoading } = useAuth();
   
-  const [desafio, setDesafio] = useState<any>(null);
-  const [carregando, setCarregando] = useState(true);
+  const [desafio, setDesafio] = useState<Desafio | null>(null);
   const [questaoAtual, setQuestaoAtual] = useState(0);
   const [respostas, setRespostas] = useState<Record<number, string>>({});
-  const [tempoRestante, setTempoRestante] = useState(0);
+  const [tempoCorrido, setTempoCorrido] = useState(0);
+  const [startTime, setStartTime] = useState<Date | null>(null);
+  const [desafioIniciado, setDesafioIniciado] = useState(false);
   const [desafioFinalizado, setDesafioFinalizado] = useState(false);
   const [pontuacao, setPontuacao] = useState(0);
+  const [carregando, setCarregando] = useState(true);
   
-  // Buscar dados do desafio
+  // Carregar dados do desafio
   useEffect(() => {
-    const buscarDesafio = async () => {
-      // Simulando uma chamada à API
-      setTimeout(() => {
-        const desafioEncontrado = desafiosMock[id as keyof typeof desafiosMock];
+    if (!isLoading && !user) {
+      router.push('/login');
+      return;
+    }
+    
+    const id = params?.id;
+    if (!id) return;
+    
+    // Primeiro, verificar se é um desafio do sistema
+    const desafioSistema = desafiosMock[Number(id) as keyof typeof desafiosMock];
+    
+    if (desafioSistema) {
+      setDesafio(desafioSistema);
+      setCarregando(false);
+      return;
+    }
+    
+    // Se não for do sistema, buscar nos desafios do professor
+    const desafiosProfessor = localStorage.getItem('desafiosProfessor');
+    if (desafiosProfessor) {
+      try {
+        const desafiosParsed = JSON.parse(desafiosProfessor);
+        const desafioEncontrado = desafiosParsed.find((d: Desafio) => d.id.toString() === id.toString());
+        
         if (desafioEncontrado) {
           setDesafio(desafioEncontrado);
-          setTempoRestante(desafioEncontrado.tempo);
         }
-        setCarregando(false);
-      }, 800);
-    };
+      } catch (error) {
+        console.error('Erro ao carregar desafio do professor:', error);
+      }
+    }
     
-    buscarDesafio();
-  }, [id]);
+    setCarregando(false);
+  }, [params, router, user, isLoading]);
   
-  // Cronômetro regressivo
+  // Timer
   useEffect(() => {
-    if (!desafio || desafioFinalizado) return;
+    if (!desafioIniciado || desafioFinalizado || !startTime) return;
     
     const timer = setInterval(() => {
-      setTempoRestante(prev => {
-        if (prev <= 1) {
-          clearInterval(timer);
-          finalizarDesafio();
-          return 0;
-        }
-        return prev - 1;
-      });
+      const now = new Date();
+      const diff = Math.floor((now.getTime() - startTime.getTime()) / 1000);
+      setTempoCorrido(diff);
     }, 1000);
     
     return () => clearInterval(timer);
-  }, [desafio, desafioFinalizado]);
+  }, [desafioIniciado, desafioFinalizado, startTime]);
   
-  // Formatar tempo restante
-  const formatarTempo = (segundos: number) => {
-    const minutos = Math.floor(segundos / 60);
-    const segs = segundos % 60;
-    return `${minutos.toString().padStart(2, '0')}:${segs.toString().padStart(2, '0')}`;
+  // Iniciar desafio
+  const iniciarDesafio = () => {
+    setDesafioIniciado(true);
+    setStartTime(new Date());
   };
   
-  // Responder questão
-  const responderQuestao = (resposta: string) => {
-    setRespostas(prev => ({
-      ...prev,
-      [questaoAtual]: resposta
-    }));
+  // Selecionar resposta
+  const selecionarResposta = (alternativaId: string) => {
+    if (desafioFinalizado) return;
+    
+    const novasRespostas = { ...respostas };
+    novasRespostas[questaoAtual] = alternativaId;
+    setRespostas(novasRespostas);
   };
   
   // Navegar para próxima questão
   const proximaQuestao = () => {
+    if (!desafio) return;
+    
     if (questaoAtual < desafio.questoes.length - 1) {
       setQuestaoAtual(prev => prev + 1);
     } else {
@@ -181,6 +220,8 @@ export default function DesafioPage() {
   
   // Finalizar desafio
   const finalizarDesafio = () => {
+    if (!desafio) return;
+    
     setDesafioFinalizado(true);
     
     // Calcular pontuação
@@ -193,11 +234,33 @@ export default function DesafioPage() {
     
     const pontosTotal = Math.round((acertos / desafio.questoes.length) * desafio.pontos);
     setPontuacao(pontosTotal);
+    
+    // Salvar progresso (simulado)
+    const progressoDesafios = localStorage.getItem('progressoDesafios') || '{}';
+    try {
+      const progresso = JSON.parse(progressoDesafios);
+      progresso[desafio.id] = {
+        completado: true,
+        pontuacao: pontosTotal,
+        tempoConcluido: tempoCorrido,
+        data: new Date().toISOString()
+      };
+      localStorage.setItem('progressoDesafios', JSON.stringify(progresso));
+    } catch (error) {
+      console.error('Erro ao salvar progresso:', error);
+    }
   };
   
   // Voltar para o dashboard
   const voltarParaDashboard = () => {
     router.push('/dashboard');
+  };
+  
+  // Formatar tempo
+  const formatarTempo = (segundos: number) => {
+    const minutos = Math.floor(segundos / 60);
+    const segs = segundos % 60;
+    return `${minutos.toString().padStart(2, '0')}:${segs.toString().padStart(2, '0')}`;
   };
   
   if (carregando) {
@@ -226,175 +289,218 @@ export default function DesafioPage() {
     );
   }
   
-  // Tela de resultados
-  if (desafioFinalizado) {
-    const acertos = desafio.questoes.reduce((total: number, questao: Questao, index: number) => {
-      return total + (respostas[index] === questao.respostaCorreta ? 1 : 0);
-    }, 0);
-    
-    const percentualAcerto = Math.round((acertos / desafio.questoes.length) * 100);
-    
+  // Verificar se o usuário tem acesso
+  if (!desafioIniciado) {
+    // Tela de início do desafio
     return (
       <div className="max-w-4xl mx-auto px-4 py-12">
-        <motion.div 
-          className="card"
-          initial={{ opacity: 0, y: 20 }}
-          animate={{ opacity: 1, y: 0 }}
-          transition={{ duration: 0.5 }}
-        >
-          <div className="text-center mb-8">
-            <div className="inline-flex items-center justify-center w-20 h-20 rounded-full bg-[var(--primary)] text-white text-3xl mb-4">
-              {percentualAcerto >= 70 ? '🎉' : percentualAcerto >= 40 ? '😊' : '😔'}
+        <Link href="/desafios" className="flex items-center text-gray-600 hover:text-gray-900 mb-6">
+          <FaArrowLeft className="mr-2" /> Voltar para Desafios
+        </Link>
+        
+        <div className="card">
+          <div className="mb-6">
+            <h1 className="text-2xl font-bold mb-2">{desafio.titulo}</h1>
+            <div className="flex items-center text-gray-600 mb-4">
+              <span className="flex items-center mr-4">
+                <FaStar className="text-[var(--accent)] mr-1" /> {desafio.nivel}
+              </span>
+              <span className="flex items-center mr-4">
+                <FaTrophy className="text-[var(--primary)] mr-1" /> {desafio.pontos} pontos
+              </span>
+              <span className="flex items-center">
+                <FaClock className="text-[var(--secondary)] mr-1" /> {Math.floor(desafio.tempo / 60)} minutos
+              </span>
+              {desafio.professorId && (
+                <span className="flex items-center ml-4">
+                  <FaChalkboardTeacher className="text-[var(--secondary)] mr-1" /> Criado por Professor
+                </span>
+              )}
             </div>
-            <h1 className="text-2xl font-bold mb-2">Desafio Concluído!</h1>
-            <p className="text-gray-600">
-              Você completou o desafio <span className="font-semibold">{desafio.titulo}</span>
-            </p>
+            <p className="text-gray-600">{desafio.descricao}</p>
           </div>
           
-          <div className="grid grid-cols-1 md:grid-cols-3 gap-4 mb-8">
-            <div className="bg-gray-50 p-4 rounded-lg text-center">
-              <div className="text-2xl font-bold text-[var(--primary)]">{acertos}/{desafio.questoes.length}</div>
-              <div className="text-sm text-gray-600">Questões Corretas</div>
-            </div>
-            <div className="bg-gray-50 p-4 rounded-lg text-center">
-              <div className="text-2xl font-bold text-[var(--primary)]">{percentualAcerto}%</div>
-              <div className="text-sm text-gray-600">Taxa de Acerto</div>
-            </div>
-            <div className="bg-gray-50 p-4 rounded-lg text-center">
-              <div className="text-2xl font-bold text-[var(--primary)]">{pontuacao}</div>
-              <div className="text-sm text-gray-600">Pontos Ganhos</div>
-            </div>
-          </div>
-          
-          <div className="mb-8">
-            <h2 className="text-lg font-bold mb-4">Resumo das Respostas</h2>
-            <div className="space-y-3">
-              {desafio.questoes.map((questao: Questao, index: number) => (
-                <div key={questao.id} className="border border-gray-200 rounded-lg p-3">
-                  <div className="flex items-start">
-                    <div className={`flex-shrink-0 w-6 h-6 rounded-full flex items-center justify-center mr-3 ${respostas[index] === questao.respostaCorreta ? 'bg-green-100 text-green-600' : 'bg-red-100 text-red-600'}`}>
-                      {respostas[index] === questao.respostaCorreta ? <FaCheck size={12} /> : <FaTimes size={12} />}
-                    </div>
-                    <div>
-                      <p className="font-medium">{questao.enunciado}</p>
-                      <div className="mt-1 text-sm">
-                        <p className="text-gray-600">
-                          Sua resposta: {questao.alternativas.find(alt => alt.id === respostas[index])?.texto || "Não respondida"}
-                        </p>
-                        {respostas[index] !== questao.respostaCorreta && (
-                          <p className="text-green-600">
-                            Resposta correta: {questao.alternativas.find(alt => alt.id === questao.respostaCorreta)?.texto}
-                          </p>
-                        )}
-                      </div>
-                    </div>
-                  </div>
-                </div>
-              ))}
-            </div>
+          <div className="bg-gray-100 p-4 rounded-lg mb-6">
+            <h2 className="font-bold mb-2">Instruções:</h2>
+            <ul className="list-disc list-inside text-gray-600 space-y-1">
+              <li>Este desafio contém {desafio.questoes.length} questões.</li>
+              <li>Você tem {Math.floor(desafio.tempo / 60)} minutos para completar.</li>
+              <li>Leia cada questão cuidadosamente antes de responder.</li>
+              <li>Você pode navegar entre as questões durante o desafio.</li>
+              <li>Sua pontuação será baseada em quantas questões você acertar.</li>
+            </ul>
           </div>
           
           <div className="flex justify-between">
-            <Link href={`/desafios/${id}`} className="btn-secondary">
-              Tentar Novamente
+            <Link href="/desafios" className="btn-secondary">
+              Cancelar
             </Link>
-            <button onClick={voltarParaDashboard} className="btn-primary">
-              Voltar ao Dashboard
+            <button onClick={iniciarDesafio} className="btn-primary">
+              Iniciar Desafio
             </button>
           </div>
-        </motion.div>
+        </div>
       </div>
     );
   }
   
-  // Tela do desafio
-  const questao = desafio.questoes[questaoAtual];
+  if (desafioFinalizado) {
+    // Tela de resultado do desafio
+    const questoesTotal = desafio.questoes.length;
+    const acertos = desafio.questoes.reduce((total, questao, index) => {
+      return total + (respostas[index] === questao.respostaCorreta ? 1 : 0);
+    }, 0);
+    const porcentagemAcertos = Math.round((acertos / questoesTotal) * 100);
+    
+    return (
+      <div className="max-w-4xl mx-auto px-4 py-12">
+        <div className="card">
+          <div className="text-center mb-8">
+            <div className="text-5xl mb-4">
+              {porcentagemAcertos >= 70 ? "🎉" : porcentagemAcertos >= 50 ? "👍" : "😕"}
+            </div>
+            <h1 className="text-2xl font-bold mb-2">Desafio Concluído!</h1>
+            <p className="text-gray-600">Você completou o desafio "{desafio.titulo}"</p>
+          </div>
+          
+          <div className="grid grid-cols-1 md:grid-cols-3 gap-4 mb-8">
+            <div className="bg-gray-100 p-4 rounded-lg text-center">
+              <p className="text-gray-600 mb-1">Pontuação</p>
+              <p className="text-2xl font-bold text-[var(--primary)]">{pontuacao} pontos</p>
+            </div>
+            <div className="bg-gray-100 p-4 rounded-lg text-center">
+              <p className="text-gray-600 mb-1">Tempo</p>
+              <p className="text-2xl font-bold text-[var(--secondary)]">{formatarTempo(tempoCorrido)}</p>
+            </div>
+            <div className="bg-gray-100 p-4 rounded-lg text-center">
+              <p className="text-gray-600 mb-1">Acertos</p>
+              <p className="text-2xl font-bold text-[var(--accent)]">{acertos}/{questoesTotal} ({porcentagemAcertos}%)</p>
+            </div>
+          </div>
+          
+          <div className="mb-8">
+            <h2 className="font-bold mb-4">Resumo das Questões</h2>
+            <div className="space-y-3">
+              {desafio.questoes.map((questao, index) => {
+                const respondido = respostas[index] !== undefined;
+                const correto = respostas[index] === questao.respostaCorreta;
+                
+                return (
+                  <div key={questao.id} className="flex items-center p-3 border rounded-lg">
+                    <div className={`w-8 h-8 rounded-full flex items-center justify-center mr-3 ${
+                      !respondido ? 'bg-gray-200' : (correto ? 'bg-green-100 text-green-600' : 'bg-red-100 text-red-600')
+                    }`}>
+                      {!respondido ? (index + 1) : correto ? <FaCheck /> : <FaTimes />}
+                    </div>
+                    <div className="flex-1">
+                      <p className="font-medium">Questão {index + 1}</p>
+                      {respondido && (
+                        <p className="text-sm text-gray-600">
+                          {correto ? 'Resposta correta' : `Resposta errada (correta: ${questao.respostaCorreta.toUpperCase()})`}
+                        </p>
+                      )}
+                    </div>
+                  </div>
+                );
+              })}
+            </div>
+          </div>
+          
+          <div className="flex justify-between">
+            <button onClick={voltarParaDashboard} className="btn-secondary">
+              Voltar para o Dashboard
+            </button>
+            <Link href="/desafios" className="btn-primary">
+              Mais Desafios
+            </Link>
+          </div>
+        </div>
+      </div>
+    );
+  }
+  
+  // Tela do desafio em andamento
+  const questaoAtualObj = desafio.questoes[questaoAtual];
+  const respostaSelecionada = respostas[questaoAtual];
   
   return (
     <div className="max-w-4xl mx-auto px-4 py-12">
-      <div className="flex items-center justify-between mb-6">
-        <Link href="/dashboard" className="flex items-center text-[var(--primary)] hover:underline">
-          <FaArrowLeft className="mr-2" /> Voltar
-        </Link>
+      <div className="flex justify-between items-center mb-6">
+        <h1 className="text-2xl font-bold">{desafio.titulo}</h1>
         <div className="flex items-center">
-          <FaClock className="text-[var(--primary)] mr-2" />
-          <span className={`font-mono font-medium ${tempoRestante < 60 ? 'text-red-500 animate-pulse' : ''}`}>
-            {formatarTempo(tempoRestante)}
-          </span>
+          <div className="bg-[var(--primary)] text-white px-3 py-1 rounded-lg flex items-center">
+            <FaClock className="mr-2" />
+            {formatarTempo(tempoCorrido)}
+          </div>
         </div>
       </div>
       
+      <div className="mb-4 bg-gray-100 h-2 rounded-full overflow-hidden">
+        <div 
+          className="bg-[var(--primary)] h-full"
+          style={{ width: `${((questaoAtual + 1) / desafio.questoes.length) * 100}%` }}
+        ></div>
+      </div>
+      
       <div className="card mb-6">
-        <div className="flex justify-between items-center mb-6">
-          <h1 className="text-2xl font-bold">{desafio.titulo}</h1>
-          <div className="flex items-center">
-            <FaTrophy className="text-[var(--primary)] mr-2" />
-            <span className="font-medium">{desafio.pontos} pontos</span>
-          </div>
-        </div>
-        
-        <div className="flex items-center justify-between mb-8">
-          <div className="text-sm text-gray-600">
+        <div className="mb-6">
+          <span className="inline-block bg-[var(--primary)] text-white px-3 py-1 rounded-lg mb-4">
             Questão {questaoAtual + 1} de {desafio.questoes.length}
-          </div>
-          <div className="bg-gray-100 h-2 flex-grow mx-4 rounded-full overflow-hidden">
-            <div 
-              className="bg-[var(--primary)] h-full"
-              style={{ width: `${((questaoAtual + 1) / desafio.questoes.length) * 100}%` }}
-            ></div>
-          </div>
+          </span>
+          <h2 className="text-xl font-medium mb-2">{questaoAtualObj.enunciado}</h2>
         </div>
         
-        <div className="mb-8">
-          <h2 className="text-xl font-medium mb-6">{questao.enunciado}</h2>
-          
-          <div className="space-y-3">
-            {questao.alternativas.map((alternativa: Alternativa) => (
-              <div 
-                key={alternativa.id}
-                onClick={() => responderQuestao(alternativa.id)}
-                className={`border p-4 rounded-lg cursor-pointer transition-all ${
-                  respostas[questaoAtual] === alternativa.id 
-                    ? 'border-[var(--primary)] bg-[var(--primary)] bg-opacity-5' 
-                    : 'border-gray-200 hover:border-[var(--primary)]'
-                }`}
-              >
-                <div className="flex items-center">
-                  <div className={`w-6 h-6 rounded-full border flex items-center justify-center mr-3 ${
-                    respostas[questaoAtual] === alternativa.id 
-                      ? 'bg-[var(--primary)] border-[var(--primary)] text-white' 
-                      : 'border-gray-300'
-                  }`}>
-                    {respostas[questaoAtual] === alternativa.id && <div className="w-2 h-2 bg-white rounded-full"></div>}
-                  </div>
-                  <span>{alternativa.texto}</span>
-                </div>
-              </div>
-            ))}
-          </div>
+        <div className="space-y-3 mb-6">
+          {questaoAtualObj.alternativas.map((alternativa) => (
+            <button
+              key={alternativa.id}
+              className={`w-full text-left p-4 border rounded-lg transition-colors ${
+                respostaSelecionada === alternativa.id 
+                  ? 'bg-[var(--primary)] text-white border-[var(--primary)]'
+                  : 'hover:bg-gray-50'
+              }`}
+              onClick={() => selecionarResposta(alternativa.id)}
+            >
+              <span className="font-bold mr-2">{alternativa.id.toUpperCase()})</span> {alternativa.texto}
+            </button>
+          ))}
         </div>
         
         <div className="flex justify-between">
           <button 
-            onClick={questaoAnterior}
+            onClick={questaoAnterior} 
+            className={`btn-secondary ${questaoAtual === 0 ? 'opacity-50 cursor-not-allowed' : ''}`}
             disabled={questaoAtual === 0}
-            className={`px-6 py-2 rounded-lg ${
-              questaoAtual === 0 
-                ? 'bg-gray-100 text-gray-400 cursor-not-allowed' 
-                : 'bg-gray-100 text-gray-700 hover:bg-gray-200'
-            }`}
           >
             Anterior
           </button>
           
           <button 
-            onClick={proximaQuestao}
+            onClick={proximaQuestao} 
             className="btn-primary"
+            disabled={respostaSelecionada === undefined}
           >
-            {questaoAtual < desafio.questoes.length - 1 ? 'Próxima' : 'Finalizar'}
+            {questaoAtual === desafio.questoes.length - 1 ? 'Finalizar' : 'Próxima'}
           </button>
         </div>
+      </div>
+      
+      <div className="flex flex-wrap justify-center gap-2">
+        {desafio.questoes.map((_, index) => (
+          <button
+            key={index}
+            className={`w-10 h-10 rounded-full flex items-center justify-center ${
+              index === questaoAtual 
+                ? 'bg-[var(--primary)] text-white'
+                : respostas[index] !== undefined
+                ? 'bg-[var(--accent)] text-white'
+                : 'bg-gray-200'
+            }`}
+            onClick={() => setQuestaoAtual(index)}
+          >
+            {index + 1}
+          </button>
+        ))}
       </div>
     </div>
   );

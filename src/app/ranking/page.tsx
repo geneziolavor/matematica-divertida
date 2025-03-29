@@ -14,6 +14,25 @@ import {
   FaExchangeAlt
 } from 'react-icons/fa';
 import { useAuth } from '@/context/AuthContext';
+import { MdEmojiEvents } from 'react-icons/md';
+import { TbTrophy } from 'react-icons/tb';
+
+interface RankingItem {
+  userId: string;
+  nome: string;
+  escola: string;
+  tipo: string;
+  pontuacaoTotal: number;
+  desafiosCompletados: number;
+}
+
+interface ProgressoItem {
+  userId: string;
+  pontuacao: number;
+  completado: boolean;
+  tempoConcluido: number;
+  data: string;
+}
 
 // Dados fictícios de alunos para o ranking
 const alunosRanking = [
@@ -44,18 +63,85 @@ const escolasRanking = [
 ];
 
 export default function Ranking() {
+  const [ranking, setRanking] = useState<RankingItem[]>([]);
+  const [isLoading, setIsLoading] = useState(true);
   const [tipoRanking, setTipoRanking] = useState<'alunos' | 'escolas'>('alunos');
   const [pesquisa, setPesquisa] = useState('');
   const [filtroEscola, setFiltroEscola] = useState<string | null>(null);
-  const { user, isLoading } = useAuth();
+  const { user } = useAuth();
   const router = useRouter();
 
-  // Redirecionar para login se não estiver autenticado
   useEffect(() => {
-    if (!isLoading && !user) {
+    if (!user) {
       router.push('/login');
+      return;
     }
-  }, [user, isLoading, router]);
+
+    const fetchRanking = async () => {
+      try {
+        const response = await fetch('/api/ranking');
+        if (!response.ok) {
+          throw new Error('Falha ao carregar o ranking');
+        }
+        
+        const data = await response.json();
+        setRanking(data);
+      } catch (error) {
+        console.error("Erro ao carregar ranking:", error);
+        // Fallback para localStorage como backup
+        try {
+          const progressoDesafios = localStorage.getItem('progressoDesafios');
+          const usersLocalStorage = localStorage.getItem('users');
+          
+          if (progressoDesafios && usersLocalStorage) {
+            const progresso = JSON.parse(progressoDesafios) as Record<string, ProgressoItem>;
+            const users = JSON.parse(usersLocalStorage) as Array<{
+              id: string;
+              nome: string;
+              email: string;
+              tipo: string;
+              escola: string;
+            }>;
+            
+            // Calcular pontuação total por usuário
+            const pontuacoesPorUsuario: Record<string, { total: number, desafiosCompletados: number }> = {};
+            
+            Object.entries(progresso).forEach(([_, dados]) => {
+              const { userId, pontuacao } = dados;
+              if (!pontuacoesPorUsuario[userId]) {
+                pontuacoesPorUsuario[userId] = { total: 0, desafiosCompletados: 0 };
+              }
+              pontuacoesPorUsuario[userId].total += pontuacao;
+              pontuacoesPorUsuario[userId].desafiosCompletados += 1;
+            });
+            
+            // Formatar ranking com dados de usuários
+            const rankingLocal = Object.entries(pontuacoesPorUsuario).map(([userId, dados]) => {
+              const userInfo = users.find(u => u.id === userId) || { nome: 'Desconhecido', escola: 'N/A', tipo: 'aluno' };
+              return {
+                userId,
+                nome: userInfo.nome,
+                escola: userInfo.escola,
+                tipo: userInfo.tipo,
+                pontuacaoTotal: dados.total,
+                desafiosCompletados: dados.desafiosCompletados
+              };
+            });
+            
+            // Ordenar por pontuação
+            rankingLocal.sort((a, b) => b.pontuacaoTotal - a.pontuacaoTotal);
+            setRanking(rankingLocal);
+          }
+        } catch (err) {
+          console.error("Erro no fallback local:", err);
+        }
+      } finally {
+        setIsLoading(false);
+      }
+    };
+
+    fetchRanking();
+  }, [user, router]);
 
   // Filtrar alunos com base na pesquisa e filtro de escola
   const alunosFiltrados = alunosRanking.filter(aluno => {
@@ -96,260 +182,90 @@ export default function Ranking() {
     alunosRanking.find(a => a.nome === user.nome) : null;
 
   return (
-    <div className="max-w-7xl mx-auto px-4 py-8 sm:px-6 lg:px-8">
-      <h1 className="text-2xl font-bold mb-6">Ranking de {tipoRanking === 'alunos' ? 'Alunos' : 'Escolas'}</h1>
-      
-      <div className="grid grid-cols-1 md:grid-cols-4 gap-6">
-        {/* Sidebar */}
-        <div className="col-span-1">
-          <div className="card mb-6">
-            <h2 className="font-bold text-lg mb-4 flex items-center">
-              <FaFilter className="mr-2" /> Opções de Ranking
-            </h2>
-            
-            <div className="mb-6">
-              <h3 className="font-medium mb-2">Tipo de Ranking</h3>
-              <div className="flex space-x-4">
-                <button 
-                  className={`px-4 py-2 rounded-lg ${tipoRanking === 'alunos' ? 'bg-[var(--primary)] text-white' : 'bg-gray-100'}`}
-                  onClick={() => setTipoRanking('alunos')}
-                >
-                  <FaUserGraduate className="inline-block mr-2" /> 
-                  Alunos
-                </button>
-                <button 
-                  className={`px-4 py-2 rounded-lg ${tipoRanking === 'escolas' ? 'bg-[var(--primary)] text-white' : 'bg-gray-100'}`}
-                  onClick={() => setTipoRanking('escolas')}
-                >
-                  <FaSchool className="inline-block mr-2" /> 
-                  Escolas
-                </button>
-              </div>
-            </div>
-            
-            <div className="mb-6">
-              <h3 className="font-medium mb-2">Pesquisar</h3>
-              <div className="relative">
-                <div className="absolute left-3 top-1/2 -translate-y-1/2 text-gray-400">
-                  <FaSearch />
-                </div>
-                <input
-                  type="text"
-                  value={pesquisa}
-                  onChange={(e) => setPesquisa(e.target.value)}
-                  className="pl-10 w-full p-3 border border-gray-300 rounded-lg focus:ring-2 focus:ring-[var(--primary)] focus:border-transparent"
-                  placeholder={`Pesquisar ${tipoRanking === 'alunos' ? 'alunos' : 'escolas'}...`}
-                />
-              </div>
-            </div>
-            
-            {tipoRanking === 'alunos' && (
-              <div>
-                <h3 className="font-medium mb-2">Filtrar por Escola</h3>
-                <div className="space-y-2">
-                  <button 
-                    className={`w-full text-left px-3 py-2 rounded-lg ${filtroEscola === null ? 'bg-[var(--primary)] text-white' : 'hover:bg-gray-100'}`}
-                    onClick={() => setFiltroEscola(null)}
-                  >
-                    Todas as Escolas
-                  </button>
-                  
-                  {escolasUnicas.map(escola => (
-                    <button 
-                      key={escola}
-                      className={`w-full text-left px-3 py-2 rounded-lg ${filtroEscola === escola ? 'bg-[var(--primary)] text-white' : 'hover:bg-gray-100'}`}
-                      onClick={() => setFiltroEscola(escola)}
-                    >
-                      <FaSchool className="inline-block mr-2" /> {escola}
-                    </button>
-                  ))}
-                </div>
-              </div>
-            )}
-          </div>
-          
-          {user.tipo === 'aluno' && userRanking && (
-            <div className="card bg-[var(--primary)] bg-opacity-10 border border-[var(--primary)] border-opacity-20">
-              <h2 className="font-bold text-lg mb-4 flex items-center text-[var(--primary)]">
-                <FaUserGraduate className="mr-2" /> Sua Posição
-              </h2>
-              
-              <div className="flex items-center">
-                <div className="flex-shrink-0 w-12 h-12 rounded-full bg-[var(--primary)] flex items-center justify-center text-white font-bold text-xl">
-                  {userRanking.posicao}
-                </div>
-                <div className="ml-4">
-                  <div className="font-bold">{user.nome}</div>
-                  <div className="text-gray-600 text-sm">{user.escola}</div>
-                  <div className="flex items-center mt-1">
-                    <span className="text-[var(--primary)] font-bold">{userRanking.pontuacao} pts</span>
-                    <span className="mx-2">•</span>
-                    <span className="flex items-center">
-                      <FaMedal className="text-yellow-500 mr-1" /> {userRanking.medalhas}
-                    </span>
-                  </div>
-                </div>
-              </div>
-            </div>
-          )}
-        </div>
+    <>
+      <main className="container mx-auto px-4 py-8">
+        <h1 className="text-3xl font-bold text-center mb-6 text-blue-600">
+          Ranking Global
+        </h1>
         
-        {/* Conteúdo principal */}
-        <div className="col-span-1 md:col-span-3">
-          <div className="card">
-            <div className="flex justify-between items-center mb-6">
-              <h2 className="font-bold text-lg">
-                Top {tipoRanking === 'alunos' ? 'Alunos' : 'Escolas'}
-                {filtroEscola && ` - ${filtroEscola}`}
-              </h2>
+        {isLoading ? (
+          <div className="flex justify-center items-center h-64">
+            <div className="animate-spin rounded-full h-12 w-12 border-t-2 border-b-2 border-blue-500"></div>
+          </div>
+        ) : (
+          <>
+            {/* Top 3 */}
+            <div className="flex flex-col md:flex-row justify-center items-end gap-4 mb-10">
+              {ranking.length > 1 && (
+                <div className="w-full md:w-1/4 bg-gradient-to-t from-gray-100 to-gray-200 rounded-lg p-4 text-center h-48 flex flex-col justify-end">
+                  <div className="bg-gray-500 text-white w-16 h-16 rounded-full mx-auto mb-2 flex items-center justify-center text-2xl">
+                    <TbTrophy />
+                  </div>
+                  <p className="font-semibold truncate">{ranking[1].nome}</p>
+                  <p className="text-sm text-gray-600 truncate">{ranking[1].escola}</p>
+                  <p className="font-bold text-lg">{ranking[1].pontuacaoTotal} pts</p>
+                </div>
+              )}
               
-              <div className="flex space-x-2">
-                <button 
-                  className="px-3 py-1 bg-gray-100 rounded-lg text-sm flex items-center"
-                  onClick={() => {
-                    setPesquisa('');
-                    setFiltroEscola(null);
-                  }}
-                >
-                  <FaFilter className="mr-1" /> Limpar Filtros
-                </button>
-                <button 
-                  className="px-3 py-1 bg-gray-100 rounded-lg text-sm flex items-center"
-                  onClick={() => setTipoRanking(tipoRanking === 'alunos' ? 'escolas' : 'alunos')}
-                >
-                  <FaExchangeAlt className="mr-1" /> Trocar para {tipoRanking === 'alunos' ? 'Escolas' : 'Alunos'}
-                </button>
-              </div>
+              {ranking.length > 0 && (
+                <div className="w-full md:w-1/3 bg-gradient-to-t from-yellow-100 to-yellow-200 rounded-lg p-4 text-center h-56 flex flex-col justify-end">
+                  <div className="bg-yellow-500 text-white w-20 h-20 rounded-full mx-auto mb-2 flex items-center justify-center text-3xl">
+                    <MdEmojiEvents />
+                  </div>
+                  <p className="font-bold text-xl truncate">{ranking[0].nome}</p>
+                  <p className="text-sm text-gray-600 truncate">{ranking[0].escola}</p>
+                  <p className="font-bold text-2xl">{ranking[0].pontuacaoTotal} pts</p>
+                </div>
+              )}
+              
+              {ranking.length > 2 && (
+                <div className="w-full md:w-1/4 bg-gradient-to-t from-orange-100 to-orange-200 rounded-lg p-4 text-center h-40 flex flex-col justify-end">
+                  <div className="bg-orange-500 text-white w-14 h-14 rounded-full mx-auto mb-2 flex items-center justify-center text-xl">
+                    <TbTrophy />
+                  </div>
+                  <p className="font-semibold truncate">{ranking[2].nome}</p>
+                  <p className="text-sm text-gray-600 truncate">{ranking[2].escola}</p>
+                  <p className="font-bold text-lg">{ranking[2].pontuacaoTotal} pts</p>
+                </div>
+              )}
             </div>
             
-            {tipoRanking === 'alunos' ? (
-              <div className="overflow-x-auto">
-                <table className="min-w-full divide-y divide-gray-200">
-                  <thead className="bg-gray-50">
-                    <tr>
-                      <th scope="col" className="px-6 py-3 text-left text-xs font-medium text-gray-500 uppercase tracking-wider w-16">
-                        Posição
-                      </th>
-                      <th scope="col" className="px-6 py-3 text-left text-xs font-medium text-gray-500 uppercase tracking-wider">
-                        Aluno
-                      </th>
-                      <th scope="col" className="px-6 py-3 text-left text-xs font-medium text-gray-500 uppercase tracking-wider">
-                        Pontuação
-                      </th>
-                      <th scope="col" className="px-6 py-3 text-left text-xs font-medium text-gray-500 uppercase tracking-wider">
-                        Medalhas
-                      </th>
+            {/* Lista completa */}
+            <div className="bg-white rounded-lg shadow overflow-hidden">
+              <table className="min-w-full">
+                <thead className="bg-gray-100">
+                  <tr>
+                    <th className="py-3 px-4 text-left text-sm font-medium text-gray-500">Posição</th>
+                    <th className="py-3 px-4 text-left text-sm font-medium text-gray-500">Nome</th>
+                    <th className="py-3 px-4 text-left text-sm font-medium text-gray-500 hidden md:table-cell">Escola</th>
+                    <th className="py-3 px-4 text-left text-sm font-medium text-gray-500">Pontuação</th>
+                    <th className="py-3 px-4 text-left text-sm font-medium text-gray-500 hidden md:table-cell">Desafios</th>
+                  </tr>
+                </thead>
+                <tbody className="divide-y divide-gray-200">
+                  {ranking.map((pessoa, index) => (
+                    <tr 
+                      key={pessoa.userId} 
+                      className={`${user?.id === pessoa.userId ? 'bg-blue-50' : ''} hover:bg-gray-50`}
+                    >
+                      <td className="py-3 px-4">{index + 1}</td>
+                      <td className="py-3 px-4 font-medium">
+                        {pessoa.nome}
+                        {pessoa.tipo === 'professor' && (
+                          <span className="ml-2 px-2 py-1 text-xs rounded-full bg-purple-100 text-purple-800">Professor</span>
+                        )}
+                      </td>
+                      <td className="py-3 px-4 text-gray-500 hidden md:table-cell">{pessoa.escola}</td>
+                      <td className="py-3 px-4 font-bold">{pessoa.pontuacaoTotal} pts</td>
+                      <td className="py-3 px-4 text-gray-500 hidden md:table-cell">{pessoa.desafiosCompletados}</td>
                     </tr>
-                  </thead>
-                  <tbody className="bg-white divide-y divide-gray-200">
-                    {alunosFiltrados.length > 0 ? (
-                      alunosFiltrados.map((aluno) => (
-                        <tr key={aluno.id} className={`hover:bg-gray-50 ${user && user.nome === aluno.nome ? 'bg-[var(--primary)] bg-opacity-10' : ''}`}>
-                          <td className="px-6 py-4 whitespace-nowrap">
-                            <div className={`w-8 h-8 rounded-full flex items-center justify-center font-bold text-white
-                              ${aluno.posicao === 1 ? 'bg-yellow-500' : 
-                                aluno.posicao === 2 ? 'bg-gray-400' : 
-                                aluno.posicao === 3 ? 'bg-amber-600' : 'bg-[var(--primary)]'}`}
-                            >
-                              {aluno.posicao}
-                            </div>
-                          </td>
-                          <td className="px-6 py-4 whitespace-nowrap">
-                            <div className="flex items-center">
-                              <div>
-                                <div className="font-medium text-gray-900">{aluno.nome}</div>
-                                <div className="text-sm text-gray-500 flex items-center">
-                                  <FaSchool className="mr-1" /> {aluno.escola}
-                                </div>
-                              </div>
-                            </div>
-                          </td>
-                          <td className="px-6 py-4 whitespace-nowrap">
-                            <div className="text-sm font-bold text-[var(--primary)]">{aluno.pontuacao} pontos</div>
-                          </td>
-                          <td className="px-6 py-4 whitespace-nowrap">
-                            <div className="flex items-center">
-                              <FaMedal className="text-yellow-500 mr-2" />
-                              <span className="font-medium">{aluno.medalhas}</span>
-                            </div>
-                          </td>
-                        </tr>
-                      ))
-                    ) : (
-                      <tr>
-                        <td colSpan={4} className="px-6 py-8 text-center text-gray-500">
-                          Nenhum aluno encontrado com os filtros selecionados.
-                        </td>
-                      </tr>
-                    )}
-                  </tbody>
-                </table>
-              </div>
-            ) : (
-              <div className="overflow-x-auto">
-                <table className="min-w-full divide-y divide-gray-200">
-                  <thead className="bg-gray-50">
-                    <tr>
-                      <th scope="col" className="px-6 py-3 text-left text-xs font-medium text-gray-500 uppercase tracking-wider w-16">
-                        Posição
-                      </th>
-                      <th scope="col" className="px-6 py-3 text-left text-xs font-medium text-gray-500 uppercase tracking-wider">
-                        Escola
-                      </th>
-                      <th scope="col" className="px-6 py-3 text-left text-xs font-medium text-gray-500 uppercase tracking-wider">
-                        Pontuação Média
-                      </th>
-                      <th scope="col" className="px-6 py-3 text-left text-xs font-medium text-gray-500 uppercase tracking-wider">
-                        Total de Medalhas
-                      </th>
-                    </tr>
-                  </thead>
-                  <tbody className="bg-white divide-y divide-gray-200">
-                    {escolasFiltradas.length > 0 ? (
-                      escolasFiltradas.map((escola) => (
-                        <tr key={escola.id} className={`hover:bg-gray-50 ${user && user.escola === escola.nome ? 'bg-[var(--primary)] bg-opacity-10' : ''}`}>
-                          <td className="px-6 py-4 whitespace-nowrap">
-                            <div className={`w-8 h-8 rounded-full flex items-center justify-center font-bold text-white
-                              ${escola.posicao === 1 ? 'bg-yellow-500' : 
-                                escola.posicao === 2 ? 'bg-gray-400' : 
-                                escola.posicao === 3 ? 'bg-amber-600' : 'bg-[var(--primary)]'}`}
-                            >
-                              {escola.posicao}
-                            </div>
-                          </td>
-                          <td className="px-6 py-4 whitespace-nowrap">
-                            <div className="flex items-center">
-                              <div>
-                                <div className="font-medium text-gray-900">{escola.nome}</div>
-                                <div className="text-sm text-gray-500">{escola.alunos} alunos participantes</div>
-                              </div>
-                            </div>
-                          </td>
-                          <td className="px-6 py-4 whitespace-nowrap">
-                            <div className="text-sm font-bold text-[var(--primary)]">{escola.pontuacaoMedia} pontos</div>
-                          </td>
-                          <td className="px-6 py-4 whitespace-nowrap">
-                            <div className="flex items-center">
-                              <FaTrophy className="text-yellow-500 mr-2" />
-                              <span className="font-medium">{escola.medalhasTotal}</span>
-                            </div>
-                          </td>
-                        </tr>
-                      ))
-                    ) : (
-                      <tr>
-                        <td colSpan={4} className="px-6 py-8 text-center text-gray-500">
-                          Nenhuma escola encontrada com os filtros selecionados.
-                        </td>
-                      </tr>
-                    )}
-                  </tbody>
-                </table>
-              </div>
-            )}
-          </div>
-        </div>
-      </div>
-    </div>
+                  ))}
+                </tbody>
+              </table>
+            </div>
+          </>
+        )}
+      </main>
+    </>
   );
 } 

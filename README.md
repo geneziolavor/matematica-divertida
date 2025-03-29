@@ -1,36 +1,88 @@
-This is a [Next.js](https://nextjs.org) project bootstrapped with [`create-next-app`](https://nextjs.org/docs/app/api-reference/cli/create-next-app).
+# Matemática Divertida
 
-## Getting Started
+Uma plataforma interativa para o ensino de matemática, desenvolvida para uma competição escolar.
 
-First, run the development server:
+## Funcionalidades Principais
 
-```bash
-npm run dev
-# or
-yarn dev
-# or
-pnpm dev
-# or
-bun dev
+- Sistema de usuários (professores e alunos)
+- Desafios matemáticos interativos
+- Ranking de pontuações
+- Professores podem criar desafios e gerenciar alunos
+- Feedback sonoro e visual durante os desafios
+
+## Requisitos
+
+- Node.js 18+ 
+- npm ou yarn
+- MongoDB Atlas (para produção)
+
+## Configuração
+
+1. Clone o repositório:
+   ```bash
+   git clone https://github.com/seu-usuario/matematica-divertida.git
+   cd matematica-divertida
+   ```
+
+2. Instale as dependências:
+   ```bash
+   npm install
+   # ou
+   yarn install
+   ```
+
+3. Configure as variáveis de ambiente:
+   - Copie o arquivo `.env.local.example` para `.env.local`
+   - Preencha as variáveis com seus dados de MongoDB Atlas
+
+4. Para desenvolvimento local:
+   ```bash
+   npm run dev
+   # ou
+   yarn dev
+   ```
+
+5. Acesse a aplicação em `http://localhost:3000`
+
+## Implantação Online
+
+Para implantar a aplicação no Vercel:
+
+1. Crie uma conta no [Vercel](https://vercel.com)
+2. Instale a CLI do Vercel:
+   ```bash
+   npm install -g vercel
+   ```
+3. Faça login e implante:
+   ```bash
+   vercel login
+   vercel
+   ```
+4. Adicione suas variáveis de ambiente no dashboard do Vercel
+
+## Estrutura do Projeto
+
+```
+matematica-divertida/
+├── public/           # Arquivos estáticos
+├── src/
+│   ├── app/          # Páginas da aplicação (Next.js App Router)
+│   ├── components/   # Componentes reutilizáveis
+│   ├── context/      # Contextos React (ex: AuthContext)
+│   ├── lib/          # Funções utilitárias e conexão com banco de dados
+│   └── models/       # Modelos do MongoDB
+├── .env.local        # Variáveis de ambiente
+└── package.json
 ```
 
-Open [http://localhost:3000](http://localhost:3000) with your browser to see the result.
+## Banco de Dados
 
-You can start editing the page by modifying `app/page.tsx`. The page auto-updates as you edit the file.
+O projeto utiliza MongoDB como banco de dados, com os seguintes modelos:
 
-This project uses [`next/font`](https://nextjs.org/docs/app/building-your-application/optimizing/fonts) to automatically optimize and load [Geist](https://vercel.com/font), a new font family for Vercel.
+- Users: armazena informações de professores e alunos
+- Desafios: armazena os desafios criados
+- Pontuacoes: armazena as pontuações dos alunos
 
-## Learn More
+## Licença
 
-To learn more about Next.js, take a look at the following resources:
-
-- [Next.js Documentation](https://nextjs.org/docs) - learn about Next.js features and API.
-- [Learn Next.js](https://nextjs.org/learn) - an interactive Next.js tutorial.
-
-You can check out [the Next.js GitHub repository](https://github.com/vercel/next.js) - your feedback and contributions are welcome!
-
-## Deploy on Vercel
-
-The easiest way to deploy your Next.js app is to use the [Vercel Platform](https://vercel.com/new?utm_medium=default-template&filter=next.js&utm_source=create-next-app&utm_campaign=create-next-app-readme) from the creators of Next.js.
-
-Check out our [Next.js deployment documentation](https://nextjs.org/docs/app/building-your-application/deploying) for more details.
+Este projeto é para fins educacionais.

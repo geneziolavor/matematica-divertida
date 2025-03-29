@@ -219,8 +219,8 @@ export default function DesafioPage() {
   };
   
   // Finalizar desafio
-  const finalizarDesafio = () => {
-    if (!desafio) return;
+  const finalizarDesafio = async () => {
+    if (!desafio || !user) return;
     
     setDesafioFinalizado(true);
     
@@ -235,19 +235,43 @@ export default function DesafioPage() {
     const pontosTotal = Math.round((acertos / desafio.questoes.length) * desafio.pontos);
     setPontuacao(pontosTotal);
     
-    // Salvar progresso (simulado)
-    const progressoDesafios = localStorage.getItem('progressoDesafios') || '{}';
     try {
-      const progresso = JSON.parse(progressoDesafios);
-      progresso[desafio.id] = {
-        completado: true,
-        pontuacao: pontosTotal,
-        tempoConcluido: tempoCorrido,
-        data: new Date().toISOString()
-      };
-      localStorage.setItem('progressoDesafios', JSON.stringify(progresso));
+      // Salvar no banco de dados
+      await fetch('/api/pontuacoes', {
+        method: 'POST',
+        headers: { 'Content-Type': 'application/json' },
+        body: JSON.stringify({
+          userId: user.id,
+          desafioId: desafio.id.toString(),
+          pontos: pontosTotal,
+          tempoConcluido: tempoCorrido
+        })
+      });
+      
+      console.log("Pontuação salva com sucesso:", {
+        userId: user.id,
+        desafioId: desafio.id.toString(),
+        pontos: pontosTotal,
+        tempoConcluido: tempoCorrido
+      });
+      
+      // Também salvar no localStorage para compatibilidade
+      const progressoDesafios = localStorage.getItem('progressoDesafios') || '{}';
+      try {
+        const progresso = JSON.parse(progressoDesafios);
+        progresso[desafio.id] = {
+          userId: user.id,
+          completado: true,
+          pontuacao: pontosTotal,
+          tempoConcluido: tempoCorrido,
+          data: new Date().toISOString()
+        };
+        localStorage.setItem('progressoDesafios', JSON.stringify(progresso));
+      } catch (error) {
+        console.error('Erro ao salvar progresso local:', error);
+      }
     } catch (error) {
-      console.error('Erro ao salvar progresso:', error);
+      console.error('Erro ao salvar pontuação:', error);
     }
   };
   

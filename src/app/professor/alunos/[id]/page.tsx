@@ -66,10 +66,15 @@ const medalhasDoAluno = [
   { id: 2, nome: "Mestre de Frações", descricao: "Acertou 100% no desafio de frações", data: "2023-05-18" },
 ];
 
-export default function DetalhesAluno({ params }: { params: { id: string } }) {
+// Corrigir a tipagem para evitar erros no build
+type PageParams = {
+  id: string;
+}
+
+export default function DetalhesAluno({ params }: { params: PageParams }) {
   const router = useRouter();
   const { user, isLoading } = useAuth();
-  const [aluno, setAluno] = useState<any>(null);
+  const [aluno, setAluno] = useState(null);
   const [carregando, setCarregando] = useState(true);
 
   // Redirecionar se não for professor

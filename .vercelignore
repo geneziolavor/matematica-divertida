@@ -1,0 +1,8 @@
+# Ignorar arquivos de teste
+__tests__
+*.test.ts
+*.test.tsx
+
+# Ignorar arquivos de desenvolvimento
+.vscode
+*.log 

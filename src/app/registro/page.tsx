@@ -1,6 +1,6 @@
 'use client';
 
-import { useState, useEffect } from 'react';
+import { useState, useEffect, Suspense } from 'react';
 import Link from 'next/link';
 import { useRouter, useSearchParams } from 'next/navigation';
 import { useForm } from 'react-hook-form';
@@ -24,7 +24,7 @@ const registerSchema = z.object({
 
 type RegisterFormData = z.infer<typeof registerSchema>;
 
-export default function Registro() {
+function RegistroForm() {
   const [submitError, setSubmitError] = useState('');
   const [submitSuccess, setSubmitSuccess] = useState(false);
   const [isConvite, setIsConvite] = useState(false);
@@ -314,5 +314,13 @@ export default function Registro() {
         </div>
       </div>
     </div>
+  );
+}
+
+export default function Registro() {
+  return (
+    <Suspense fallback={<div className="max-w-4xl mx-auto my-12 px-4 text-center">Carregando formulário de registro...</div>}>
+      <RegistroForm />
+    </Suspense>
   );
 } 

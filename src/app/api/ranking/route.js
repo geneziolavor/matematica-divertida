@@ -2,74 +2,68 @@ import { NextResponse } from 'next/server';
 import dbConnect from '@/lib/mongodb';
 import Pontuacao from '@/models/Pontuacao';
 import User from '@/models/User';
+import mongoose from 'mongoose';
 
-export async function GET() {
+export async function GET(request) {
+  console.log("Requisição recebida para obter ranking");
   try {
-    console.log("Requisição recebida para obter ranking");
     await dbConnect();
     console.log("Conexão com MongoDB estabelecida");
     
-    // Primeiro, verificar se existem pontuações
-    const totalPontuacoes = await Pontuacao.countDocuments();
-    console.log("Total de pontuações encontradas:", totalPontuacoes);
-    
-    if (totalPontuacoes === 0) {
-      console.log("Nenhuma pontuação encontrada - retornando ranking vazio");
-      return NextResponse.json([]);
-    }
+    // Obter todas as pontuações
+    const pontuacoes = await Pontuacao.find();
+    console.log("Total de pontuações encontradas:", pontuacoes.length);
     
     // Agrupar pontuações por usuário
-    const ranking = await Pontuacao.aggregate([
-      { $group: {
-          _id: "$userId",
-          pontuacaoTotal: { $sum: "$pontos" },
-          desafiosCompletados: { $count: {} }
-        }
-      },
-      { $sort: { pontuacaoTotal: -1 } },
-      { $limit: 100 }
-    ]);
+    const pontuacoesPorUsuario = {};
+    
+    pontuacoes.forEach(pontuacao => {
+      const userId = pontuacao.userId.toString();
+      
+      if (!pontuacoesPorUsuario[userId]) {
+        pontuacoesPorUsuario[userId] = {
+          pontuacaoTotal: 0,
+          desafiosCompletados: 0
+        };
+      }
+      
+      pontuacoesPorUsuario[userId].pontuacaoTotal += pontuacao.pontos;
+      pontuacoesPorUsuario[userId].desafiosCompletados += 1;
+    });
+    
+    // Converter para array e ordenar
+    const ranking = Object.entries(pontuacoesPorUsuario).map(([userId, dados]) => ({
+      _id: new mongoose.Types.ObjectId(userId),
+      ...dados
+    })).sort((a, b) => b.pontuacaoTotal - a.pontuacaoTotal);
     
     console.log("Ranking agrupado:", ranking);
     
-    // Preencher dados dos usuários
+    // Buscar informações dos usuários
     const rankingCompleto = [];
+    
     for (const item of ranking) {
-      try {
-        console.log("Buscando usuário com id:", item._id);
-        const user = await User.findById(item._id, 'nome escola tipo');
-        
-        if (user) {
-          console.log("Usuário encontrado:", user.nome);
-          rankingCompleto.push({
-            userId: item._id,
-            nome: user.nome,
-            escola: user.escola,
-            tipo: user.tipo,
-            pontuacaoTotal: item.pontuacaoTotal,
-            desafiosCompletados: item.desafiosCompletados
-          });
-        } else {
-          console.log("Usuário não encontrado para id:", item._id);
-          // Incluir mesmo sem ter encontrado o usuário - pode ser útil para debug
-          rankingCompleto.push({
-            userId: item._id,
-            nome: "Usuário desconhecido",
-            escola: "N/A",
-            tipo: "aluno",
-            pontuacaoTotal: item.pontuacaoTotal,
-            desafiosCompletados: item.desafiosCompletados
-          });
-        }
-      } catch (error) {
-        console.error("Erro ao buscar usuário:", error);
+      console.log("Buscando usuário com id:", item._id);
+      const user = await User.findById(item._id);
+      
+      if (user) {
+        console.log("Usuário encontrado:", user.nome);
+        rankingCompleto.push({
+          userId: item._id,
+          nome: user.nome,
+          escola: user.escola,
+          pontuacaoTotal: item.pontuacaoTotal,
+          desafiosCompletados: item.desafiosCompletados
+        });
       }
     }
     
     console.log("Ranking completo:", rankingCompleto.length, "usuários");
+    
     return NextResponse.json(rankingCompleto);
   } catch (error) {
     console.error("Erro ao obter ranking:", error);
+    console.error("Stack trace:", error.stack);
     return NextResponse.json({ error: error.message }, { status: 500 });
   }
 } 

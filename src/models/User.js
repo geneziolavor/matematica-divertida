@@ -46,7 +46,6 @@ const UserSchema = new mongoose.Schema({
 });
 
 // Adicionando índices para melhorar o desempenho
-UserSchema.index({ email: 1 });
 UserSchema.index({ escola: 1, tipo: 1 });
 
 export default mongoose.models.User || mongoose.model('User', UserSchema); 

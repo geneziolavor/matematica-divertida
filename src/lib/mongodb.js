@@ -19,14 +19,33 @@ async function dbConnect() {
   if (!cached.promise) {
     const opts = {
       bufferCommands: false,
+      // Adicionando timeouts para evitar erros 504 no Vercel
+      serverSelectionTimeoutMS: 5000, // Timeout de 5 segundos para seleção de servidor
+      socketTimeoutMS: 45000, // Timeout de 45 segundos para operações de socket (menos que o limite de 50s do Vercel)
+      // Otimizações adicionais
+      maxPoolSize: 10, // Limitar conexões no pool
+      connectTimeoutMS: 10000, // Timeout de conexão
+      family: 4 // Força IPv4
     };
 
-    cached.promise = mongoose.connect(MONGODB_URI, opts).then((mongoose) => {
-      return mongoose;
-    });
+    cached.promise = mongoose.connect(MONGODB_URI, opts)
+      .then((mongoose) => {
+        console.log('Conexão com MongoDB estabelecida');
+        return mongoose;
+      })
+      .catch((error) => {
+        console.error('Erro ao conectar com MongoDB:', error);
+        throw error;
+      });
   }
-  cached.conn = await cached.promise;
-  return cached.conn;
+  
+  try {
+    cached.conn = await cached.promise;
+    return cached.conn;
+  } catch (e) {
+    cached.promise = null;
+    throw e;
+  }
 }
 
 export default dbConnect; 

@@ -134,10 +134,16 @@ export default function Desafios() {
 
   // Carregar desafios criados por professores
   useEffect(() => {
+    // Depuração
+    console.log("Verificando localStorage para desafiosProfessor");
+    
     const desafiosProfessor = localStorage.getItem('desafiosProfessor');
+    console.log("Valor bruto:", desafiosProfessor);
+    
     if (desafiosProfessor) {
       try {
         const desafiosParsed = JSON.parse(desafiosProfessor);
+        console.log("Desafios do professor encontrados:", desafiosParsed);
         
         // Mapear os desafios do professor para o mesmo formato dos desafios predefinidos
         const desafiosFormatados = desafiosParsed.map((d: any) => ({
@@ -152,11 +158,15 @@ export default function Desafios() {
           criadoPor: 'professor'
         }));
         
+        console.log("Desafios formatados:", desafiosFormatados);
+        
         // Combinar com os desafios predefinidos
         setTodosDesafios([...desafios, ...desafiosFormatados]);
       } catch (error) {
         console.error('Erro ao carregar desafios do professor:', error);
       }
+    } else {
+      console.log("Nenhum desafio de professor encontrado no localStorage");
     }
   }, []);
 
@@ -240,6 +250,62 @@ export default function Desafios() {
           </div>
         </div>
       </div>
+
+      {user?.tipo === 'professor' && (
+        <div className="mb-4 bg-yellow-100 border-l-4 border-yellow-500 p-4">
+          <h3 className="font-bold">Ferramentas de Professor</h3>
+          <p className="my-2">Se os desafios criados não estão abrindo, tente reiniciar o armazenamento local:</p>
+          <button 
+            className="bg-red-500 text-white px-3 py-1 rounded hover:bg-red-600 mr-2"
+            onClick={() => {
+              localStorage.removeItem('desafiosProfessor');
+              localStorage.removeItem('desafiosProfessor_backup');
+              alert('Armazenamento de desafios reiniciado. Crie novos desafios.');
+              window.location.reload();
+            }}
+          >
+            Limpar desafios
+          </button>
+          <button 
+            className="bg-blue-500 text-white px-3 py-1 rounded hover:bg-blue-600"
+            onClick={() => {
+              // Criar alguns desafios de teste
+              const desafiosTeste = [
+                {
+                  id: "teste1",
+                  titulo: "Desafio de Teste 1",
+                  categoria: "Aritmética",
+                  nivel: "Fácil",
+                  pontos: 100,
+                  tempo: 15,
+                  descricao: "Este é um desafio de teste para verificar o funcionamento da plataforma.",
+                  questoes: [
+                    {
+                      id: 1,
+                      enunciado: "Quanto é 2 + 2?",
+                      alternativas: [
+                        { id: "a", texto: "3" },
+                        { id: "b", texto: "4" },
+                        { id: "c", texto: "5" },
+                        { id: "d", texto: "6" }
+                      ],
+                      respostaCorreta: "b"
+                    }
+                  ],
+                  professorId: user.id,
+                  criadoEm: new Date().toISOString()
+                }
+              ];
+              
+              localStorage.setItem('desafiosProfessor', JSON.stringify(desafiosTeste));
+              alert('Desafio de teste criado!');
+              window.location.reload();
+            }}
+          >
+            Criar desafio de teste
+          </button>
+        </div>
+      )}
 
       <div className="grid grid-cols-1 md:grid-cols-4 gap-6">
         {/* Sidebar com filtros */}
@@ -403,9 +469,62 @@ export default function Desafios() {
                       </div>
                       
                       <Link 
-                        href={desafio.bloqueado ? '#' : (desafio.criadoPor === 'professor' ? `/desafios/${desafio.id}` : `/desafios/${desafio.id}`)}
+                        href={desafio.bloqueado ? '#' : `/desafios/${desafio.id}`}
                         className={`btn-primary mt-2 whitespace-nowrap ${desafio.bloqueado ? 'opacity-50 cursor-not-allowed' : ''}`}
-                        onClick={e => desafio.bloqueado && e.preventDefault()}
+                        onClick={e => {
+                          if (desafio.bloqueado) {
+                            e.preventDefault();
+                            return;
+                          }
+                          
+                          // Garantir que temos um ID de desafio válido no localStorage antes de navegar
+                          if (desafio.criadoPor === 'professor') {
+                            console.log("Clicou em desafio de professor com ID:", desafio.id);
+                            
+                            // Verificar se o desafio está no localStorage
+                            const desafiosProfessor = localStorage.getItem('desafiosProfessor');
+                            if (desafiosProfessor) {
+                              try {
+                                const desafiosParsed = JSON.parse(desafiosProfessor);
+                                const encontrado = desafiosParsed.find((d) => d.id.toString() === desafio.id.toString());
+                                
+                                if (!encontrado) {
+                                  console.log("Desafio não encontrado no localStorage, criando cópia temporária");
+                                  // Criar uma cópia temporária para garantir que seja encontrado
+                                  const desafioTemp = {
+                                    id: desafio.id.toString(),
+                                    titulo: desafio.titulo,
+                                    categoria: desafio.categoria,
+                                    nivel: desafio.nivel,
+                                    pontos: parseInt(desafio.pontos.toString()),
+                                    tempo: parseInt(desafio.tempo.toString()),
+                                    descricao: desafio.descricao,
+                                    questoes: [
+                                      {
+                                        id: 1,
+                                        enunciado: "Questão de exemplo",
+                                        alternativas: [
+                                          { id: "a", texto: "Resposta A" },
+                                          { id: "b", texto: "Resposta B" },
+                                          { id: "c", texto: "Resposta C" },
+                                          { id: "d", texto: "Resposta D" }
+                                        ],
+                                        respostaCorreta: "a"
+                                      }
+                                    ],
+                                    professorId: user?.id || "desconhecido",
+                                    criadoEm: new Date().toISOString()
+                                  };
+                                  
+                                  desafiosParsed.push(desafioTemp);
+                                  localStorage.setItem('desafiosProfessor', JSON.stringify(desafiosParsed));
+                                }
+                              } catch (error) {
+                                console.error("Erro ao verificar desafio:", error);
+                              }
+                            }
+                          }
+                        }}
                       >
                         {desafio.completado ? 'Refazer' : 'Iniciar'}
                       </Link>

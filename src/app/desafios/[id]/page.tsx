@@ -137,36 +137,65 @@ export default function DesafioPage() {
   
   // Carregar dados do desafio
   useEffect(() => {
+    console.log("Carregando dados do desafio");
+    
     if (!isLoading && !user) {
+      console.log("Usuário não autenticado, redirecionando para login");
       router.push('/login');
       return;
     }
     
     const id = params?.id;
-    if (!id) return;
+    console.log("ID do desafio:", id);
+    
+    if (!id) {
+      console.log("ID não fornecido");
+      return;
+    }
     
     // Primeiro, verificar se é um desafio do sistema
+    console.log("Verificando se é um desafio do sistema");
+    console.log("desafiosMock:", Object.keys(desafiosMock));
+    
     const desafioSistema = desafiosMock[Number(id) as keyof typeof desafiosMock];
+    console.log("Desafio do sistema encontrado:", desafioSistema ? "Sim" : "Não");
     
     if (desafioSistema) {
+      console.log("Usando desafio do sistema:", desafioSistema.titulo);
       setDesafio(desafioSistema);
       setCarregando(false);
       return;
     }
     
     // Se não for do sistema, buscar nos desafios do professor
+    console.log("Verificando desafios do professor");
     const desafiosProfessor = localStorage.getItem('desafiosProfessor');
+    console.log("Valor bruto do localStorage:", desafiosProfessor);
+    
     if (desafiosProfessor) {
       try {
         const desafiosParsed = JSON.parse(desafiosProfessor);
-        const desafioEncontrado = desafiosParsed.find((d: Desafio) => d.id.toString() === id.toString());
+        console.log("Desafios do professor parseados:", desafiosParsed);
+        console.log("Procurando desafio com ID", id, "tipo do ID:", typeof id);
+        
+        const desafioEncontrado = desafiosParsed.find((d: Desafio) => {
+          console.log("Comparando com:", d.id, "tipo:", typeof d.id);
+          return d.id.toString() === id.toString();
+        });
+        
+        console.log("Desafio do professor encontrado:", desafioEncontrado ? "Sim" : "Não");
         
         if (desafioEncontrado) {
+          console.log("Usando desafio do professor:", desafioEncontrado.titulo);
           setDesafio(desafioEncontrado);
+        } else {
+          console.log("Desafio não encontrado no localStorage");
         }
       } catch (error) {
         console.error('Erro ao carregar desafio do professor:', error);
       }
+    } else {
+      console.log("Nenhum desafio de professor encontrado no localStorage");
     }
     
     setCarregando(false);

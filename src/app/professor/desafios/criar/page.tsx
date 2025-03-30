@@ -155,8 +155,9 @@ export default function CriarDesafio() {
       const desafiosExistentes = localStorage.getItem('desafiosProfessor');
       const desafios = desafiosExistentes ? JSON.parse(desafiosExistentes) : [];
       
+      // Garantir que o ID seja uma string para evitar problemas de comparação
       const novoDesafio = {
-        id: Date.now(),
+        id: Date.now().toString(), // Converter para string
         titulo,
         categoria,
         nivel,
@@ -168,8 +169,13 @@ export default function CriarDesafio() {
         criadoEm: new Date().toISOString()
       };
       
+      console.log("Salvando novo desafio:", novoDesafio);
+      
       desafios.push(novoDesafio);
       localStorage.setItem('desafiosProfessor', JSON.stringify(desafios));
+      
+      // Backup para teste - criar uma cópia em outro item de localStorage
+      localStorage.setItem('desafiosProfessor_backup', JSON.stringify(desafios));
       
       setSalvando(false);
       router.push('/desafios');

@@ -118,6 +118,16 @@ export default function ConfiguracaoContato() {
       <div className="card p-6">
         <h1 className="text-2xl font-bold mb-6">Configurações de Contato</h1>
         
+        <div className="bg-blue-50 border-l-4 border-blue-500 p-4 mb-6">
+          <h3 className="text-lg font-medium text-blue-700 mb-1">Nota Importante</h3>
+          <p className="text-sm text-blue-600">
+            As configurações feitas nesta página afetam apenas o navegador atual em que você está acessando.
+            Para alterar os links de contato em todos os dispositivos, será necessário editar diretamente o código
+            no arquivo <code className="bg-blue-100 px-1 py-0.5 rounded">src/components/Footer.tsx</code>. 
+            Entre em contato com o desenvolvedor para fazer essas alterações permanentes.
+          </p>
+        </div>
+        
         <div className="space-y-6">
           {/* WhatsApp */}
           <div>

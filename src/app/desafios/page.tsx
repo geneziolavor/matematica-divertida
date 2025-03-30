@@ -428,108 +428,7 @@ export default function Desafios() {
             <div className="space-y-4">
               {desafiosFiltrados.length > 0 ? (
                 desafiosFiltrados.map((desafio) => (
-                  <div key={desafio.id} className="border border-gray-200 rounded-lg p-4 hover:shadow-md transition-shadow">
-                    <div className="flex items-start justify-between">
-                      <div>
-                        <div className="flex items-center">
-                          <h3 className="font-bold text-lg">{desafio.titulo}</h3>
-                          {desafio.completado && (
-                            <span className="ml-2 bg-[var(--success)] text-white px-2 py-1 rounded-full text-xs flex items-center">
-                              <FaCheck className="mr-1" /> Completado
-                            </span>
-                          )}
-                          {desafio.bloqueado && (
-                            <span className="ml-2 bg-gray-300 text-gray-700 px-2 py-1 rounded-full text-xs flex items-center">
-                              <FaLock className="mr-1" /> Bloqueado
-                            </span>
-                          )}
-                          {desafio.criadoPor === 'professor' && (
-                            <span className="ml-2 bg-[var(--secondary)] text-white px-2 py-1 rounded-full text-xs flex items-center">
-                              <FaChalkboardTeacher className="mr-1" /> Professor
-                            </span>
-                          )}
-                        </div>
-                        
-                        <p className="text-gray-600 mt-1">{desafio.descricao}</p>
-                        
-                        <div className="flex flex-wrap mt-3 gap-2">
-                          <span className="bg-gray-100 px-2 py-1 rounded text-xs flex items-center">
-                            <FaStar className="mr-1 text-[var(--accent)]" /> {desafio.nivel}
-                          </span>
-                          <span className="bg-gray-100 px-2 py-1 rounded text-xs flex items-center">
-                            <FaTrophy className="mr-1 text-[var(--primary)]" /> {desafio.pontos} pts
-                          </span>
-                          <span className="bg-gray-100 px-2 py-1 rounded text-xs flex items-center">
-                            <FaRegClock className="mr-1 text-[var(--secondary)]" /> {desafio.tempo}
-                          </span>
-                          <span className="bg-gray-100 px-2 py-1 rounded text-xs">
-                            {desafio.categoria}
-                          </span>
-                        </div>
-                      </div>
-                      
-                      <Link 
-                        href={desafio.bloqueado ? '#' : `/desafios/${desafio.id}`}
-                        className={`btn-primary mt-2 whitespace-nowrap ${desafio.bloqueado ? 'opacity-50 cursor-not-allowed' : ''}`}
-                        onClick={e => {
-                          if (desafio.bloqueado) {
-                            e.preventDefault();
-                            return;
-                          }
-                          
-                          // Garantir que temos um ID de desafio válido no localStorage antes de navegar
-                          if (desafio.criadoPor === 'professor') {
-                            console.log("Clicou em desafio de professor com ID:", desafio.id);
-                            
-                            // Verificar se o desafio está no localStorage
-                            const desafiosProfessor = localStorage.getItem('desafiosProfessor');
-                            if (desafiosProfessor) {
-                              try {
-                                const desafiosParsed = JSON.parse(desafiosProfessor);
-                                const encontrado = desafiosParsed.find((d) => d.id.toString() === desafio.id.toString());
-                                
-                                if (!encontrado) {
-                                  console.log("Desafio não encontrado no localStorage, criando cópia temporária");
-                                  // Criar uma cópia temporária para garantir que seja encontrado
-                                  const desafioTemp = {
-                                    id: desafio.id.toString(),
-                                    titulo: desafio.titulo,
-                                    categoria: desafio.categoria,
-                                    nivel: desafio.nivel,
-                                    pontos: parseInt(desafio.pontos.toString()),
-                                    tempo: parseInt(desafio.tempo.toString()),
-                                    descricao: desafio.descricao,
-                                    questoes: [
-                                      {
-                                        id: 1,
-                                        enunciado: "Questão de exemplo",
-                                        alternativas: [
-                                          { id: "a", texto: "Resposta A" },
-                                          { id: "b", texto: "Resposta B" },
-                                          { id: "c", texto: "Resposta C" },
-                                          { id: "d", texto: "Resposta D" }
-                                        ],
-                                        respostaCorreta: "a"
-                                      }
-                                    ],
-                                    professorId: user?.id || "desconhecido",
-                                    criadoEm: new Date().toISOString()
-                                  };
-                                  
-                                  desafiosParsed.push(desafioTemp);
-                                  localStorage.setItem('desafiosProfessor', JSON.stringify(desafiosParsed));
-                                }
-                              } catch (error) {
-                                console.error("Erro ao verificar desafio:", error);
-                              }
-                            }
-                          }
-                        }}
-                      >
-                        {desafio.completado ? 'Refazer' : 'Iniciar'}
-                      </Link>
-                    </div>
-                  </div>
+                  <DesafioCard key={desafio.id} desafio={desafio} />
                 ))
               ) : (
                 <div className="text-center py-8">
@@ -551,5 +450,158 @@ export default function Desafios() {
         </div>
       </div>
     </div>
+  );
+}
+
+// Componente de Cartão de Desafio
+function DesafioCard({ desafio }: { desafio: Desafio }) {
+  const { user } = useAuth();
+  
+  // Função para verificar desafios no localStorage
+  const verificarDesafioExistente = (id: string | number) => {
+    try {
+      const desafiosProfessor = localStorage.getItem('desafiosProfessor');
+      if (desafiosProfessor) {
+        const desafios = JSON.parse(desafiosProfessor);
+        return desafios.some((d: any) => d.id.toString() === id.toString());
+      }
+    } catch (error) {
+      console.error("Erro ao verificar desafio:", error);
+    }
+    return false;
+  };
+  
+  // Handler para clique no cartão
+  const handleCardClick = (e: React.MouseEvent) => {
+    if (desafio.bloqueado) {
+      e.preventDefault();
+      alert('Este desafio ainda está bloqueado! Complete os desafios anteriores para desbloqueá-lo.');
+      return;
+    }
+    
+    // Se for desafio de professor, verificar se existe no localStorage
+    if (desafio.criadoPor === 'professor') {
+      const existeNoLocalStorage = verificarDesafioExistente(desafio.id);
+      
+      if (!existeNoLocalStorage) {
+        console.log("Desafio não encontrado no localStorage, criando cópia temporária");
+        e.preventDefault();
+        
+        // Criar uma cópia temporária do desafio
+        const desafioTemp = {
+          id: desafio.id.toString(),
+          titulo: desafio.titulo,
+          categoria: desafio.categoria,
+          nivel: desafio.nivel,
+          pontos: desafio.pontos,
+          tempo: parseInt(desafio.tempo.replace(" min", "")) * 60,
+          descricao: desafio.descricao,
+          questoes: [
+            {
+              id: 1,
+              enunciado: "Este é um desafio recuperado. Responda a esta questão para ganhar pontos.",
+              alternativas: [
+                { id: "a", texto: "Resposta A" },
+                { id: "b", texto: "Resposta B" },
+                { id: "c", texto: "Resposta C" },
+                { id: "d", texto: "Resposta D" }
+              ],
+              respostaCorreta: "a"
+            }
+          ],
+          professorId: user?.id,
+          criadoEm: new Date().toISOString()
+        };
+        
+        // Armazenar no localStorage
+        try {
+          const desafiosAtuais = localStorage.getItem('desafiosProfessor');
+          let arrayDesafios = [];
+          
+          if (desafiosAtuais) {
+            arrayDesafios = JSON.parse(desafiosAtuais);
+          }
+          
+          arrayDesafios.push(desafioTemp);
+          localStorage.setItem('desafiosProfessor', JSON.stringify(arrayDesafios));
+          localStorage.setItem('desafiosProfessor_backup', JSON.stringify(arrayDesafios));
+          
+          // Redirecionar manualmente
+          window.location.href = `/desafios/${desafio.id}`;
+        } catch (error) {
+          console.error("Erro ao salvar desafio temporário:", error);
+          alert("Houve um erro ao abrir o desafio. Por favor, tente novamente.");
+        }
+      }
+    }
+  };
+  
+  return (
+    <Link 
+      href={desafio.bloqueado ? '#' : `/desafios/${desafio.id}`}
+      onClick={handleCardClick}
+      className={`card group hover:shadow-lg transition-all duration-300 ${
+        desafio.bloqueado 
+          ? 'opacity-70 cursor-not-allowed' 
+          : 'hover:scale-[1.02] cursor-pointer'
+      }`}
+    >
+      <div className="flex justify-between items-start mb-3">
+        <div className="flex items-center">
+          <div className={`w-10 h-10 rounded-full flex items-center justify-center ${
+            desafio.nivel === 'Fácil' 
+              ? 'bg-green-100 text-green-600' 
+              : desafio.nivel === 'Médio'
+                ? 'bg-yellow-100 text-yellow-600'
+                : 'bg-red-100 text-red-600'
+          }`}>
+            <FaCalculator className="text-lg" />
+          </div>
+          <div className="ml-3">
+            <h3 className="font-bold truncate max-w-[180px] text-[var(--text)]">{desafio.titulo}</h3>
+            <p className="text-xs text-gray-500">{desafio.categoria}</p>
+          </div>
+        </div>
+        
+        {desafio.bloqueado && (
+          <span className="text-gray-500 rounded-full p-1">
+            <FaLock />
+          </span>
+        )}
+        
+        {desafio.completado && !desafio.bloqueado && (
+          <div className="p-1 bg-green-100 text-green-600 rounded-full">
+            <FaCheck />
+          </div>
+        )}
+      </div>
+      
+      <p className="text-sm text-gray-600 mb-4 line-clamp-2">{desafio.descricao}</p>
+      
+      <div className="mt-auto">
+        <div className="border-t border-gray-100 pt-3 flex items-center justify-between">
+          <div className="flex items-center text-xs text-gray-500">
+            <FaRegClock className="mr-1" />
+            <span>{desafio.tempo}</span>
+          </div>
+          
+          <div className="flex items-center text-xs">
+            <div className="flex items-center mr-2">
+              <FaChalkboardTeacher className={`mr-1 ${
+                desafio.criadoPor === 'professor' ? 'text-purple-500' : 'text-gray-400'
+              }`} />
+              {desafio.criadoPor === 'professor' && (
+                <span className="text-purple-500">Professor</span>
+              )}
+            </div>
+            
+            <div className="flex items-center">
+              <FaTrophy className="mr-1 text-[var(--primary)]" />
+              <span className="font-semibold text-[var(--primary)]">{desafio.pontos}</span>
+            </div>
+          </div>
+        </div>
+      </div>
+    </Link>
   );
 } 

@@ -150,14 +150,18 @@ export default function DesafioPage() {
     
     if (!id) {
       console.log("ID não fornecido");
+      setCarregando(false);
       return;
     }
     
-    // Primeiro, verificar se é um desafio do sistema
-    console.log("Verificando se é um desafio do sistema");
-    console.log("desafiosMock:", Object.keys(desafiosMock));
+    // Primeiro verificar se é um ID numérico para desafios do sistema
+    const idNumerico = parseInt(id as string, 10);
+    const isNumericId = !isNaN(idNumerico);
     
-    const desafioSistema = desafiosMock[Number(id) as keyof typeof desafiosMock];
+    console.log("ID é numérico:", isNumericId, "Valor numérico:", idNumerico);
+    
+    // Verificando se é um desafio do sistema
+    const desafioSistema = isNumericId ? desafiosMock[idNumerico as keyof typeof desafiosMock] : null;
     console.log("Desafio do sistema encontrado:", desafioSistema ? "Sim" : "Não");
     
     if (desafioSistema) {
@@ -168,38 +172,143 @@ export default function DesafioPage() {
     }
     
     // Se não for do sistema, buscar nos desafios do professor
-    console.log("Verificando desafios do professor");
-    const desafiosProfessor = localStorage.getItem('desafiosProfessor');
-    console.log("Valor bruto do localStorage:", desafiosProfessor);
-    
-    if (desafiosProfessor) {
-      try {
-        const desafiosParsed = JSON.parse(desafiosProfessor);
-        console.log("Desafios do professor parseados:", desafiosParsed);
-        console.log("Procurando desafio com ID", id, "tipo do ID:", typeof id);
-        
-        const desafioEncontrado = desafiosParsed.find((d: Desafio) => {
-          console.log("Comparando com:", d.id, "tipo:", typeof d.id);
-          return d.id.toString() === id.toString();
-        });
-        
-        console.log("Desafio do professor encontrado:", desafioEncontrado ? "Sim" : "Não");
-        
-        if (desafioEncontrado) {
-          console.log("Usando desafio do professor:", desafioEncontrado.titulo);
-          setDesafio(desafioEncontrado);
-        } else {
-          console.log("Desafio não encontrado no localStorage");
+    try {
+      console.log("Verificando desafios do professor");
+      const desafiosProfessor = localStorage.getItem('desafiosProfessor');
+      console.log("Valor bruto do localStorage:", desafiosProfessor ? "Encontrado" : "Não encontrado");
+      
+      // Se não tiver desafios de professor, verificar se tem um backup
+      if (!desafiosProfessor) {
+        const backup = localStorage.getItem('desafiosProfessor_backup');
+        if (backup) {
+          console.log("Usando backup dos desafios");
+          localStorage.setItem('desafiosProfessor', backup);
         }
-      } catch (error) {
-        console.error('Erro ao carregar desafio do professor:', error);
       }
-    } else {
-      console.log("Nenhum desafio de professor encontrado no localStorage");
+      
+      // Criar um desafio de exemplo se não encontrar nada
+      if (!desafiosProfessor && !localStorage.getItem('desafiosProfessor_backup')) {
+        console.log("Criando desafio de exemplo temporário");
+        const desafioTeste = {
+          id: id.toString(),
+          titulo: "Desafio Temporário",
+          categoria: "Teste",
+          nivel: "Médio",
+          pontos: 200,
+          tempo: 10 * 60,
+          descricao: "Este é um desafio temporário criado como fallback.",
+          questoes: [
+            {
+              id: 1,
+              enunciado: "Quanto é 2 + 2?",
+              alternativas: [
+                { id: "a", texto: "3" },
+                { id: "b", texto: "4" },
+                { id: "c", texto: "5" },
+                { id: "d", texto: "6" }
+              ],
+              respostaCorreta: "b"
+            }
+          ]
+        };
+        
+        const desafiosTemporarios = [desafioTeste];
+        localStorage.setItem('desafiosProfessor_temp', JSON.stringify(desafiosTemporarios));
+        setDesafio(desafioTeste);
+        setCarregando(false);
+        return;
+      }
+      
+      // Tentar processar os desafios do professor
+      if (desafiosProfessor) {
+        try {
+          const desafiosParsed = JSON.parse(desafiosProfessor);
+          console.log("Total de desafios do professor:", Array.isArray(desafiosParsed) ? desafiosParsed.length : "Não é array");
+          
+          // Verificar se desafiosParsed é um array
+          if (!Array.isArray(desafiosParsed)) {
+            throw new Error("Formato inválido de desafios");
+          }
+          
+          // Mapear todos os IDs para depuração
+          console.log("IDs disponíveis:", desafiosParsed.map((d: any) => typeof d.id === 'undefined' ? 'undefined' : d.id.toString()));
+          
+          const desafioEncontrado = desafiosParsed.find((d: any) => {
+            if (!d || typeof d.id === 'undefined') return false;
+            return d.id.toString() === id.toString();
+          });
+          
+          console.log("Desafio do professor encontrado:", desafioEncontrado ? "Sim" : "Não");
+          
+          if (desafioEncontrado) {
+            console.log("Usando desafio do professor:", desafioEncontrado.titulo);
+            setDesafio(desafioEncontrado);
+            setCarregando(false);
+          } else {
+            console.log("Desafio não encontrado, criando fallback");
+            // Criar desafio básico como fallback
+            const desafioFallback = {
+              id: id.toString(),
+              titulo: "Desafio " + id,
+              categoria: "Matemática",
+              nivel: "Médio",
+              pontos: 100,
+              tempo: 5 * 60,
+              descricao: "Este desafio foi gerado como fallback porque o original não foi encontrado.",
+              questoes: [
+                {
+                  id: 1,
+                  enunciado: "Qual é o resultado de 5 × 7?",
+                  alternativas: [
+                    { id: "a", texto: "35" },
+                    { id: "b", texto: "30" },
+                    { id: "c", texto: "40" },
+                    { id: "d", texto: "25" }
+                  ],
+                  respostaCorreta: "a"
+                }
+              ]
+            };
+            setDesafio(desafioFallback);
+            setCarregando(false);
+          }
+        } catch (error) {
+          console.error('Erro ao processar desafios do professor:', error);
+          // Em caso de erro, criar um desafio de emergência
+          const desafioEmergencia = {
+            id: id.toString(),
+            titulo: "Desafio de Emergência",
+            categoria: "Recuperação",
+            nivel: "Básico",
+            pontos: 50,
+            tempo: 3 * 60,
+            descricao: "Este desafio foi criado porque ocorreu um erro ao carregar o desafio original.",
+            questoes: [
+              {
+                id: 1,
+                enunciado: "Quanto é 10 - 5?",
+                alternativas: [
+                  { id: "a", texto: "5" },
+                  { id: "b", texto: "6" },
+                  { id: "c", texto: "4" },
+                  { id: "d", texto: "7" }
+                ],
+                respostaCorreta: "a"
+              }
+            ]
+          };
+          setDesafio(desafioEmergencia);
+          setCarregando(false);
+        }
+      } else {
+        console.log("Nenhum desafio encontrado no localStorage");
+        setCarregando(false);
+      }
+    } catch (error) {
+      console.error("Erro geral ao carregar desafio:", error);
+      setCarregando(false);
     }
-    
-    setCarregando(false);
-  }, [params, router, user, isLoading]);
+  }, [params?.id, user, isLoading, router]);
   
   // Timer
   useEffect(() => {

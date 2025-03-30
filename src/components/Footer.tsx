@@ -11,24 +11,27 @@ interface ContatoConfig {
   email: string;
 }
 
+// Dados padrão de contato (sempre disponíveis)
+const dadosContatoPadrao: ContatoConfig = {
+  whatsapp: 'https://wa.me/5511987654321',
+  instagram: 'https://instagram.com/matematica.divertida',
+  email: 'contato@matematicadivertida.com'
+};
+
 export default function Footer() {
-  const [contato, setContato] = useState<ContatoConfig>({
-    whatsapp: 'https://wa.me/5511987654321',
-    instagram: 'https://instagram.com/matematica.divertida',
-    email: 'contato@matematicadivertida.com'
-  });
+  const [contato, setContato] = useState<ContatoConfig>(dadosContatoPadrao);
 
   // Carregar configurações do localStorage quando o componente montar
   useEffect(() => {
-    const configSalva = localStorage.getItem('matematica_divertida_config_contato');
-    
-    if (configSalva) {
-      try {
+    try {
+      const configSalva = localStorage.getItem('matematica_divertida_config_contato');
+      if (configSalva) {
         const configParsed = JSON.parse(configSalva);
         setContato(configParsed);
-      } catch (error) {
-        console.error('Erro ao carregar configurações de contato:', error);
       }
+    } catch (error) {
+      console.error('Erro ao carregar configurações de contato:', error);
+      // Se der erro, mantém os dados padrão
     }
   }, []);
 
@@ -76,7 +79,7 @@ export default function Footer() {
             <h3 className="text-lg font-semibold mb-4">Contato</h3>
             <div className="flex space-x-4 mb-4">
               <a 
-                href={contato.whatsapp} 
+                href={dadosContatoPadrao.whatsapp} 
                 target="_blank" 
                 rel="noopener noreferrer" 
                 className="text-white hover:text-[var(--accent)] transition-colors"
@@ -85,7 +88,7 @@ export default function Footer() {
                 <FaWhatsapp className="h-6 w-6" />
               </a>
               <a 
-                href={contato.instagram} 
+                href={dadosContatoPadrao.instagram}
                 target="_blank" 
                 rel="noopener noreferrer" 
                 className="text-white hover:text-[var(--accent)] transition-colors"
@@ -94,7 +97,7 @@ export default function Footer() {
                 <FaInstagram className="h-6 w-6" />
               </a>
               <a 
-                href={`mailto:${contato.email}`}
+                href={`mailto:${dadosContatoPadrao.email}`}
                 className="text-white hover:text-[var(--accent)] transition-colors"
                 aria-label="Email"
               >
@@ -106,10 +109,10 @@ export default function Footer() {
             </p>
             <p className="text-sm mt-2">
               <a 
-                href={`mailto:${contato.email}`}
+                href={`mailto:${dadosContatoPadrao.email}`}
                 className="text-[var(--accent)] hover:underline"
               >
-                {contato.email}
+                {dadosContatoPadrao.email}
               </a>
             </p>
           </div>

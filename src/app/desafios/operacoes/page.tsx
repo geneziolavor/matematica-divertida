@@ -3,22 +3,12 @@
 import { useState, useEffect, useRef } from 'react';
 import Link from 'next/link';
 import { useRouter } from 'next/navigation';
-import { 
-  FaArrowLeft, 
-  FaCalculator, 
-  FaClock, 
-  FaStar, 
-  FaCheck, 
-  FaTimes,
-  FaVolumeMute,
-  FaVolumeUp,
-  FaTrophy,
-  FaPlay
-} from 'react-icons/fa';
+import { FaArrowLeft, FaClock, FaStar } from 'react-icons/fa';
 import { useAuth } from '@/context/AuthContext';
 
-type Operacao = '+' | '-' | '*' | '/';
+// Tipos
 type Dificuldade = 'facil' | 'medio' | 'dificil';
+type Operacao = '+' | '-' | '*' | '/';
 
 interface Questao {
   num1: number;
@@ -28,476 +18,426 @@ interface Questao {
   opcoes: number[];
 }
 
+// Componente principal
 export default function DesafioOperacoes() {
-  const [iniciado, setIniciado] = useState(false);
-  const [questoes, setQuestoes] = useState<Questao[]>([]);
-  const [questaoAtual, setQuestaoAtual] = useState(0);
-  const [acertos, setAcertos] = useState(0);
-  const [tempo, setTempo] = useState(0);
-  const [soundEnabled, setSoundEnabled] = useState(true);
-  const [respostaEscolhida, setRespostaEscolhida] = useState<number | null>(null);
-  const [respostaCorreta, setRespostaCorreta] = useState(false);
-  const [proximaQuestaoTimeout, setProximaQuestaoTimeout] = useState<NodeJS.Timeout | null>(null);
-  const [completo, setCompleto] = useState(false);
-  const [dificuldade, setDificuldade] = useState<Dificuldade>('facil');
-  const [totalQuestoes] = useState(20);
-
-  const audioAcertoRef = useRef<HTMLAudioElement | null>(null);
-  const audioErroRef = useRef<HTMLAudioElement | null>(null);
-  const audioFinalRef = useRef<HTMLAudioElement | null>(null);
-  const intervalRef = useRef<NodeJS.Timeout | null>(null);
-
-  const { user, isLoading } = useAuth();
   const router = useRouter();
-
-  // Redirecionar para login se não estiver autenticado
+  const { user, isLoading } = useAuth();
+  
+  // Estados
+  const [dificuldade, setDificuldade] = useState<Dificuldade>('facil');
+  const [desafioIniciado, setDesafioIniciado] = useState(false);
+  const [questaoAtual, setQuestaoAtual] = useState<Questao | null>(null);
+  const [questoesRespondidas, setQuestoesRespondidas] = useState(0);
+  const [respostasCorretas, setRespostasCorretas] = useState(0);
+  const [timer, setTimer] = useState(0);
+  const [feedback, setFeedback] = useState<'correto' | 'incorreto' | null>(null);
+  const [pontuacao, setPontuacao] = useState(0);
+  const [desafioCompleto, setDesafioCompleto] = useState(false);
+  const [carregando, setCarregando] = useState(true);
+  
+  // Referências para áudio (serão inicializadas apenas no cliente)
+  const audioAcerto = useRef<HTMLAudioElement | null>(null);
+  const audioErro = useRef<HTMLAudioElement | null>(null);
+  const audioFinal = useRef<HTMLAudioElement | null>(null);
+  
+  // Inicializar elementos de áudio no lado do cliente
   useEffect(() => {
+    // Garantir que estamos no lado do cliente
+    setCarregando(false);
+    
+    // Inicializar elementos de áudio
+    try {
+      audioAcerto.current = new Audio('/sons/acerto.mp3');
+      audioErro.current = new Audio('/sons/erro.mp3');
+      audioFinal.current = new Audio('/sons/final.mp3');
+    } catch (error) {
+      console.error('Erro ao carregar arquivos de áudio:', error);
+    }
+    
+    // Verificar autenticação
     if (!isLoading && !user) {
       router.push('/login');
     }
   }, [user, isLoading, router]);
-
-  // Inicializar áudios
+  
+  // Efeito para o timer quando o desafio está em andamento
   useEffect(() => {
-    audioAcertoRef.current = new Audio('/sons/acerto.mp3');
-    audioErroRef.current = new Audio('/sons/erro.mp3');
-    audioFinalRef.current = new Audio('/sons/final.mp3');
-
+    let intervalId: NodeJS.Timeout;
+    
+    if (desafioIniciado && !desafioCompleto) {
+      intervalId = setInterval(() => {
+        setTimer(prev => prev + 1);
+      }, 1000);
+    }
+    
     return () => {
-      if (intervalRef.current) clearInterval(intervalRef.current);
-      if (proximaQuestaoTimeout) clearTimeout(proximaQuestaoTimeout);
+      if (intervalId) clearInterval(intervalId);
     };
-  }, [proximaQuestaoTimeout]);
-
-  // Gerar questões aleatórias
-  const gerarQuestoes = () => {
-    const novasQuestoes: Questao[] = [];
-    const operacoes: Operacao[] = ['+', '-', '*', '/'];
+  }, [desafioIniciado, desafioCompleto]);
+  
+  // Função para gerar uma nova questão baseada na dificuldade
+  const gerarQuestao = (): Questao => {
+    // Definir limites com base na dificuldade
+    const limites = {
+      facil: { min: 1, max: 10, ops: ['+', '-'] as Operacao[] },
+      medio: { min: 1, max: 25, ops: ['+', '-', '*'] as Operacao[] },
+      dificil: { min: 1, max: 50, ops: ['+', '-', '*', '/'] as Operacao[] }
+    };
     
-    for (let i = 0; i < totalQuestoes; i++) {
-      const operacao = operacoes[Math.floor(Math.random() * operacoes.length)];
-      let num1, num2, resposta;
+    const { min, max, ops } = limites[dificuldade];
+    let num1: number, num2: number, operacao: Operacao, resposta: number;
+    
+    // Gerar números e operação aleatórios
+    operacao = ops[Math.floor(Math.random() * ops.length)];
+    
+    // Garantir que divisões resultem em números inteiros
+    if (operacao === '/') {
+      num2 = Math.floor(Math.random() * (max - min) + min);
+      // Multiplicar primeiro para garantir resultado inteiro na divisão
+      resposta = Math.floor(Math.random() * (max - min) + min);
+      num1 = num2 * resposta;
+    } else {
+      num1 = Math.floor(Math.random() * (max - min) + min);
+      num2 = Math.floor(Math.random() * (max - min) + min);
       
-      // Gerar números com base na dificuldade
-      if (dificuldade === 'facil') {
-        if (operacao === '+' || operacao === '-') {
-          num1 = Math.floor(Math.random() * 90) + 10; // 10-99
-          num2 = Math.floor(Math.random() * 90) + 10; // 10-99
-        } else if (operacao === '*') {
-          num1 = Math.floor(Math.random() * 9) + 2; // 2-10
-          num2 = Math.floor(Math.random() * 9) + 2; // 2-10
-        } else { // Divisão
-          num2 = Math.floor(Math.random() * 9) + 2; // 2-10
-          resposta = Math.floor(Math.random() * 9) + 2; // 2-10
-          num1 = num2 * resposta; // Garantir divisão exata
-        }
-      } else if (dificuldade === 'medio') {
-        if (operacao === '+' || operacao === '-') {
-          num1 = Math.floor(Math.random() * 900) + 100; // 100-999
-          num2 = Math.floor(Math.random() * 900) + 100; // 100-999
-        } else if (operacao === '*') {
-          num1 = Math.floor(Math.random() * 90) + 10; // 10-99
-          num2 = Math.floor(Math.random() * 9) + 2; // 2-10
-        } else { // Divisão
-          num2 = Math.floor(Math.random() * 9) + 2; // 2-10
-          resposta = Math.floor(Math.random() * 90) + 10; // 10-99
-          num1 = num2 * resposta; // Garantir divisão exata
-        }
-      } else { // Difícil
-        if (operacao === '+' || operacao === '-') {
-          num1 = Math.floor(Math.random() * 9000) + 1000; // 1000-9999
-          num2 = Math.floor(Math.random() * 9000) + 1000; // 1000-9999
-        } else if (operacao === '*') {
-          num1 = Math.floor(Math.random() * 90) + 10; // 10-99
-          num2 = Math.floor(Math.random() * 90) + 10; // 10-99
-        } else { // Divisão
-          num2 = Math.floor(Math.random() * 90) + 10; // 10-99
-          resposta = Math.floor(Math.random() * 9) + 2; // 2-10
-          num1 = num2 * resposta; // Garantir divisão exata
-        }
+      // Se for subtração, garantir resultado positivo
+      if (operacao === '-' && num2 > num1) {
+        [num1, num2] = [num2, num1];
       }
       
-      // Se é divisão, já temos resposta, senão calculamos
-      if (operacao !== '/' || !resposta) {
-        resposta = calcularResposta(num1, num2, operacao);
+      // Calcular resposta
+      switch (operacao) {
+        case '+': resposta = num1 + num2; break;
+        case '-': resposta = num1 - num2; break;
+        case '*': resposta = num1 * num2; break;
+        default: resposta = num1 / num2; // Já garantimos que é inteiro
       }
-      
-      // Gerar opções (1 correta + 3 incorretas)
-      const opcoes = gerarOpcoes(resposta, operacao);
-      
-      novasQuestoes.push({
-        num1,
-        num2,
-        operacao,
-        resposta,
-        opcoes
-      });
     }
     
-    setQuestoes(novasQuestoes);
-  };
-
-  // Calcular resposta correta
-  const calcularResposta = (num1: number, num2: number, operacao: Operacao): number => {
-    switch (operacao) {
-      case '+':
-        return num1 + num2;
-      case '-':
-        return num1 - num2;
-      case '*':
-        return num1 * num2;
-      case '/':
-        return Math.round(num1 / num2);
-      default:
-        return 0;
-    }
-  };
-
-  // Gerar opções de resposta (1 correta + 3 incorretas)
-  const gerarOpcoes = (resposta: number, operacao: Operacao): number[] => {
-    const opcoes: number[] = [resposta];
+    // Gerar opções (incluindo a resposta correta)
+    const opcoes = [resposta];
     
-    // Gerar variações da resposta correta
-    for (let i = 0; i < 3; i++) {
-      let opcaoIncorreta;
-      do {
-        // Variação depende da operação e magnitude da resposta
-        const variacao = Math.max(1, Math.floor(Math.abs(resposta) * 0.2));
-        const sinal = Math.random() > 0.5 ? 1 : -1;
-        
-        if (operacao === '+' || operacao === '-') {
-          opcaoIncorreta = resposta + sinal * (Math.floor(Math.random() * variacao) + 1);
-        } else if (operacao === '*') {
-          opcaoIncorreta = resposta + sinal * (Math.floor(Math.random() * variacao) + 1);
-        } else { // Divisão
-          opcaoIncorreta = resposta + sinal * (Math.floor(Math.random() * 3) + 1);
-        }
-      } while (opcoes.includes(opcaoIncorreta));
+    // Gerar 3 respostas incorretas próximas à resposta correta
+    while (opcoes.length < 4) {
+      const offset = Math.floor(Math.random() * 10) + 1;
+      const sinal = Math.random() > 0.5 ? 1 : -1;
+      const opcao = resposta + (offset * sinal);
       
-      opcoes.push(opcaoIncorreta);
+      // Evitar opções negativas e duplicadas
+      if (opcao > 0 && !opcoes.includes(opcao)) {
+        opcoes.push(opcao);
+      }
     }
     
     // Embaralhar opções
-    return opcoes.sort(() => Math.random() - 0.5);
+    return {
+      num1,
+      num2,
+      operacao,
+      resposta,
+      opcoes: opcoes.sort(() => Math.random() - 0.5)
+    };
   };
-
+  
   // Iniciar desafio
   const iniciarDesafio = () => {
-    gerarQuestoes();
-    setQuestaoAtual(0);
-    setAcertos(0);
-    setTempo(0);
-    setIniciado(true);
-    setCompleto(false);
-    setRespostaEscolhida(null);
-    setRespostaCorreta(false);
+    setDesafioIniciado(true);
+    setQuestaoAtual(gerarQuestao());
+    setQuestoesRespondidas(0);
+    setRespostasCorretas(0);
+    setPontuacao(0);
+    setTimer(0);
+    setDesafioCompleto(false);
+  };
+  
+  // Verificar resposta
+  const verificarResposta = (resposta: number) => {
+    if (!questaoAtual) return;
     
-    // Iniciar cronômetro
-    intervalRef.current = setInterval(() => {
-      setTempo(prevTempo => prevTempo + 1);
+    const isCorreto = resposta === questaoAtual.resposta;
+    
+    // Atualizar estatísticas
+    if (isCorreto) {
+      // Calcular pontos (baseado na dificuldade e tempo)
+      const pontosDificuldade = {
+        facil: 10,
+        medio: 20,
+        dificil: 30
+      };
+      
+      // Bônus por resposta rápida
+      const tempoBonus = Math.max(0, 5 - Math.floor(timer / 5));
+      const pontos = pontosDificuldade[dificuldade] + tempoBonus;
+      
+      setRespostasCorretas(prev => prev + 1);
+      setPontuacao(prev => prev + pontos);
+      setFeedback('correto');
+      
+      // Tocar som de acerto
+      if (audioAcerto.current) {
+        audioAcerto.current.play().catch(err => console.error('Erro ao tocar áudio:', err));
+      }
+    } else {
+      setFeedback('incorreto');
+      
+      // Tocar som de erro
+      if (audioErro.current) {
+        audioErro.current.play().catch(err => console.error('Erro ao tocar áudio:', err));
+      }
+    }
+    
+    // Passar para próxima questão após 1 segundo
+    setTimeout(() => {
+      setQuestoesRespondidas(prev => prev + 1);
+      setFeedback(null);
+      
+      // Verificar se completou 20 questões
+      if (questoesRespondidas + 1 >= 20) {
+        finalizarDesafio();
+      } else {
+        setQuestaoAtual(gerarQuestao());
+      }
     }, 1000);
   };
-
-  // Verificar resposta
-  const verificarResposta = (opcao: number) => {
-    if (respostaEscolhida !== null) return; // Já respondeu, aguardando próxima questão
+  
+  // Finalizar desafio
+  const finalizarDesafio = () => {
+    setDesafioCompleto(true);
     
-    const correta = opcao === questoes[questaoAtual].resposta;
-    setRespostaEscolhida(opcao);
-    setRespostaCorreta(correta);
-    
-    // Tocar som
-    if (soundEnabled) {
-      if (correta) {
-        audioAcertoRef.current?.play();
-      } else {
-        audioErroRef.current?.play();
-      }
+    // Tocar som final
+    if (audioFinal.current) {
+      audioFinal.current.play().catch(err => console.error('Erro ao tocar áudio final:', err));
     }
     
-    // Incrementar acertos
-    if (correta) {
-      setAcertos(prevAcertos => prevAcertos + 1);
-    }
-    
-    // Avançar para próxima questão após 1.5 segundo
-    const timeout = setTimeout(() => {
-      if (questaoAtual < questoes.length - 1) {
-        setQuestaoAtual(prevQuestao => prevQuestao + 1);
-        setRespostaEscolhida(null);
-      } else {
-        // Desafio completo
-        if (intervalRef.current) clearInterval(intervalRef.current);
-        setCompleto(true);
-        if (soundEnabled) {
-          audioFinalRef.current?.play();
-        }
-        
-        // Salvar progresso (em uma aplicação real, enviaria para backend)
-        const progresso = {
-          dificuldade,
-          acertos,
-          tempoTotal: tempo,
-          data: new Date().toISOString()
-        };
-        
-        console.log('Progresso salvo:', progresso);
-        
-        // Em uma aplicação real: salvarProgresso(progresso);
+    // Salvar pontuação (versão simplificada)
+    try {
+      // Registrar pontuação no localStorage como fallback
+      const pontuacoes = JSON.parse(localStorage.getItem('pontuacoes') || '[]');
+      pontuacoes.push({
+        userId: user?.id || 'anonimo',
+        nome: user?.nome || 'Usuário Anônimo',
+        desafioId: 'operacoes',
+        pontuacao: pontuacao,
+        data: new Date().toISOString()
+      });
+      localStorage.setItem('pontuacoes', JSON.stringify(pontuacoes));
+      
+      // Se estamos online, tentamos salvar no servidor
+      if (typeof window !== 'undefined' && navigator.onLine) {
+        fetch('/api/pontuacoes', {
+          method: 'POST',
+          headers: {
+            'Content-Type': 'application/json'
+          },
+          body: JSON.stringify({
+            userId: user?.id || 'anonimo',
+            desafioId: 'operacoes',
+            pontos: pontuacao,
+            tempoConcluido: timer
+          })
+        })
+        .then(res => {
+          if (!res.ok) throw new Error('Erro ao salvar pontuação');
+          return res.json();
+        })
+        .then(data => console.log('Pontuação salva com sucesso:', data))
+        .catch(err => console.error('Erro ao salvar pontuação:', err));
       }
-    }, 1500);
-    
-    setProximaQuestaoTimeout(timeout);
+    } catch (error) {
+      console.error('Erro ao salvar pontuação:', error);
+    }
   };
-
-  // Formatar tempo
+  
+  // Helper para formatar o tempo (mm:ss)
   const formatarTempo = (segundos: number): string => {
     const minutos = Math.floor(segundos / 60);
-    const segsRestantes = segundos % 60;
-    return `${minutos.toString().padStart(2, '0')}:${segsRestantes.toString().padStart(2, '0')}`;
+    const segs = segundos % 60;
+    return `${minutos.toString().padStart(2, '0')}:${segs.toString().padStart(2, '0')}`;
   };
-
-  // Simbolo da operação
-  const simboloOperacao = (operacao: Operacao): string => {
-    switch (operacao) {
-      case '+': return '+';
-      case '-': return '−';
-      case '*': return '×';
-      case '/': return '÷';
-      default: return '';
-    }
-  };
-
-  if (isLoading) {
+  
+  // Componente de carregamento
+  if (carregando) {
     return (
-      <div className="max-w-4xl mx-auto px-4 py-8 sm:px-6 lg:px-8 flex justify-center items-center min-h-[60vh]">
-        <div className="text-center">
-          <div className="animate-spin rounded-full h-16 w-16 border-t-2 border-b-2 border-[var(--primary)] mx-auto mb-4"></div>
-          <p className="text-gray-600">Carregando...</p>
+      <div className="flex min-h-screen flex-col items-center justify-center">
+        <h1 className="text-2xl font-bold mb-4">Carregando desafio...</h1>
+        <div className="animate-pulse bg-blue-400 h-4 w-32 rounded"></div>
+      </div>
+    );
+  }
+  
+  // Tela inicial (seleção de dificuldade)
+  if (!desafioIniciado) {
+    return (
+      <div className="container mx-auto px-4 py-8">
+        <div className="flex items-center mb-6">
+          <Link href="/desafios" className="text-gray-600 hover:text-gray-900 mr-2">
+            <FaArrowLeft />
+          </Link>
+          <h1 className="text-2xl font-bold">Desafio de Operações Matemáticas</h1>
+        </div>
+        
+        <div className="card max-w-lg mx-auto p-6">
+          <h2 className="text-xl font-bold mb-4 text-center">Escolha a Dificuldade</h2>
+          
+          <div className="space-y-3 mb-6">
+            <button 
+              onClick={() => setDificuldade('facil')}
+              className={`btn w-full ${dificuldade === 'facil' ? 'bg-green-500 text-white' : 'bg-gray-100'}`}
+            >
+              Fácil (Adição e Subtração)
+            </button>
+            
+            <button 
+              onClick={() => setDificuldade('medio')}
+              className={`btn w-full ${dificuldade === 'medio' ? 'bg-yellow-500 text-white' : 'bg-gray-100'}`}
+            >
+              Médio (+ Multiplicação)
+            </button>
+            
+            <button 
+              onClick={() => setDificuldade('dificil')}
+              className={`btn w-full ${dificuldade === 'dificil' ? 'bg-red-500 text-white' : 'bg-gray-100'}`}
+            >
+              Difícil (+ Divisão)
+            </button>
+          </div>
+          
+          <div className="text-center">
+            <p className="mb-4 text-gray-600">
+              Resolva 20 operações matemáticas o mais rápido possível.
+              Quanto mais rápido você responder, mais pontos ganhará!
+            </p>
+            
+            <button 
+              onClick={iniciarDesafio}
+              className="btn-primary px-8 py-3"
+            >
+              Iniciar Desafio
+            </button>
+          </div>
         </div>
       </div>
     );
   }
-
-  if (!user) {
-    return null; // Será redirecionado pelo useEffect
-  }
-
-  return (
-    <div className="max-w-4xl mx-auto px-4 py-8 sm:px-6 lg:px-8">
-      {/* Cabeçalho */}
-      <div className="flex justify-between items-center mb-6">
-        <Link href="/desafios" className="flex items-center text-[var(--primary)] hover:underline">
-          <FaArrowLeft className="mr-2" /> Voltar para Desafios
-        </Link>
+  
+  // Tela de desafio completo
+  if (desafioCompleto) {
+    return (
+      <div className="container mx-auto px-4 py-8">
+        <h1 className="text-2xl font-bold mb-6 text-center">Desafio Concluído!</h1>
         
-        <button 
-          onClick={() => setSoundEnabled(!soundEnabled)}
-          className="p-2 rounded-full hover:bg-gray-100"
-          aria-label={soundEnabled ? "Desativar som" : "Ativar som"}
-        >
-          {soundEnabled ? <FaVolumeUp /> : <FaVolumeMute />}
-        </button>
-      </div>
-      
-      {/* Tela inicial */}
-      {!iniciado && !completo && (
-        <div className="card text-center py-8">
-          <h1 className="text-3xl font-bold mb-6">Desafio de Operações Matemáticas</h1>
+        <div className="card max-w-lg mx-auto p-6 text-center">
+          <div className="text-5xl mb-4 text-green-500">🏆</div>
           
-          <div className="mb-8">
-            <FaCalculator className="text-[var(--primary)] text-6xl mx-auto mb-4" />
-            <p className="text-lg text-gray-700 mb-6">
-              Teste suas habilidades com as quatro operações matemáticas básicas!
-              Resolva {totalQuestoes} questões o mais rápido possível.
-            </p>
-            
-            <div className="max-w-md mx-auto mb-8">
-              <h2 className="text-xl font-bold mb-3">Selecione a dificuldade:</h2>
-              <div className="flex justify-center gap-4">
-                <button 
-                  onClick={() => setDificuldade('facil')} 
-                  className={`px-4 py-2 rounded-lg ${dificuldade === 'facil' ? 'bg-[var(--primary)] text-white' : 'bg-gray-100'}`}
-                >
-                  Fácil
-                </button>
-                <button 
-                  onClick={() => setDificuldade('medio')} 
-                  className={`px-4 py-2 rounded-lg ${dificuldade === 'medio' ? 'bg-[var(--primary)] text-white' : 'bg-gray-100'}`}
-                >
-                  Médio
-                </button>
-                <button 
-                  onClick={() => setDificuldade('dificil')} 
-                  className={`px-4 py-2 rounded-lg ${dificuldade === 'dificil' ? 'bg-[var(--primary)] text-white' : 'bg-gray-100'}`}
-                >
-                  Difícil
-                </button>
+          <h2 className="text-xl font-bold mb-2">Resultados</h2>
+          
+          <div className="bg-gray-100 rounded-lg p-4 mb-6">
+            <div className="grid grid-cols-2 gap-4">
+              <div>
+                <p className="text-gray-600">Pontuação</p>
+                <p className="text-2xl font-bold">{pontuacao}</p>
+              </div>
+              <div>
+                <p className="text-gray-600">Tempo Total</p>
+                <p className="text-2xl font-bold">{formatarTempo(timer)}</p>
+              </div>
+              <div>
+                <p className="text-gray-600">Acertos</p>
+                <p className="text-2xl font-bold">{respostasCorretas}/20</p>
+              </div>
+              <div>
+                <p className="text-gray-600">Precisão</p>
+                <p className="text-2xl font-bold">{Math.round((respostasCorretas / 20) * 100)}%</p>
               </div>
             </div>
-            
-            <button 
-              onClick={iniciarDesafio} 
-              className="btn-primary inline-flex items-center text-lg px-8 py-3"
-            >
-              <FaPlay className="mr-2" /> Iniciar Desafio
-            </button>
           </div>
           
-          <div className="bg-[var(--accent)] bg-opacity-10 max-w-md mx-auto p-4 rounded-lg">
-            <h3 className="font-bold mb-2">Como jogar:</h3>
-            <ul className="text-left text-sm space-y-2">
-              <li>• Resolva {totalQuestoes} questões matemáticas</li>
-              <li>• Escolha a resposta correta entre 4 opções</li>
-              <li>• Seja rápido! O tempo está sendo contado</li>
-              <li>• Ao final, veja seu desempenho</li>
-            </ul>
+          <div className="space-y-3">
+            <button 
+              onClick={iniciarDesafio}
+              className="btn-primary w-full"
+            >
+              Jogar Novamente
+            </button>
+            
+            <Link href="/desafios" className="btn-secondary w-full block text-center">
+              Voltar para Desafios
+            </Link>
           </div>
         </div>
-      )}
+      </div>
+    );
+  }
+  
+  // Tela do desafio em andamento
+  return (
+    <div className="container mx-auto px-4 py-8">
+      <div className="flex justify-between items-center mb-6">
+        <Link href="/desafios" className="text-gray-600 hover:text-gray-900">
+          <FaArrowLeft />
+        </Link>
+        
+        <div className="flex items-center">
+          <FaClock className="mr-2 text-gray-600" />
+          <span className="font-mono">{formatarTempo(timer)}</span>
+        </div>
+        
+        <div className="flex items-center">
+          <FaStar className="mr-2 text-yellow-500" />
+          <span className="font-bold">{pontuacao}</span>
+        </div>
+      </div>
       
-      {/* Desafio em andamento */}
-      {iniciado && !completo && questoes.length > 0 && (
-        <div className="card">
-          {/* Barra de progresso e cronômetro */}
-          <div className="flex justify-between items-center mb-6">
-            <div className="flex-1 flex items-center">
-              <div className="font-bold text-lg mr-4">
-                {questaoAtual + 1}/{totalQuestoes}
-              </div>
-              <div className="w-full bg-gray-200 rounded-full h-2.5">
-                <div 
-                  className="bg-[var(--primary)] h-2.5 rounded-full" 
-                  style={{ width: `${((questaoAtual + 1) / totalQuestoes) * 100}%` }}
-                ></div>
-              </div>
-            </div>
-            <div className="ml-6 bg-gray-100 px-4 py-2 rounded-lg flex items-center">
-              <FaClock className="mr-2 text-[var(--primary)]" />
-              <span className="font-mono font-bold">{formatarTempo(tempo)}</span>
-            </div>
+      <div className="card max-w-lg mx-auto p-6">
+        <div className="mb-2 text-center">
+          <span className="text-sm text-gray-600">Questão {questoesRespondidas + 1}/20</span>
+          <div className="h-2 bg-gray-200 rounded-full mt-1">
+            <div 
+              className="h-2 bg-blue-500 rounded-full" 
+              style={{ width: `${(questoesRespondidas / 20) * 100}%` }}
+            ></div>
           </div>
-          
-          {/* Questão atual */}
-          <div className="text-center mb-8">
-            <div className="inline-flex items-center justify-center w-16 h-16 rounded-full bg-[var(--primary)] text-white font-bold text-xl mb-4">
-              {questaoAtual + 1}
+        </div>
+        
+        {questaoAtual && (
+          <>
+            <div className="text-center mb-8">
+              <h2 className="text-3xl font-bold mb-4">
+                {questaoAtual.num1} {questaoAtual.operacao} {questaoAtual.num2} = ?
+              </h2>
+              
+              {feedback && (
+                <div 
+                  className={`text-white p-2 rounded-md ${
+                    feedback === 'correto' ? 'bg-green-500' : 'bg-red-500'
+                  }`}
+                >
+                  {feedback === 'correto' ? 'Correto!' : 'Incorreto!'}
+                </div>
+              )}
             </div>
             
-            <div className="text-4xl font-bold mb-8 flex items-center justify-center">
-              <span>{questoes[questaoAtual].num1}</span>
-              <span className="mx-4 text-[var(--accent)]">
-                {simboloOperacao(questoes[questaoAtual].operacao)}
-              </span>
-              <span>{questoes[questaoAtual].num2}</span>
-              <span className="mx-4">=</span>
-              <span className="text-[var(--primary)]">?</span>
-            </div>
-            
-            {/* Opções de resposta */}
-            <div className="grid grid-cols-2 gap-4">
-              {questoes[questaoAtual].opcoes.map((opcao, index) => (
+            <div className="grid grid-cols-2 gap-3">
+              {questaoAtual.opcoes.map((opcao, index) => (
                 <button
                   key={index}
                   onClick={() => verificarResposta(opcao)}
-                  className={`
-                    p-4 text-xl font-bold rounded-lg transition-colors
-                    ${respostaEscolhida === null 
-                      ? 'bg-white border-2 border-gray-200 hover:border-[var(--primary)]' 
-                      : respostaEscolhida === opcao 
-                        ? (respostaCorreta ? 'bg-green-100 border-2 border-green-500' : 'bg-red-100 border-2 border-red-500')
-                        : opcao === questoes[questaoAtual].resposta && respostaEscolhida !== null
-                          ? 'bg-green-100 border-2 border-green-500'
-                          : 'bg-white border-2 border-gray-200 opacity-60'
-                    }
-                  `}
-                  disabled={respostaEscolhida !== null}
+                  className={`btn ${
+                    feedback 
+                      ? opcao === questaoAtual.resposta 
+                        ? 'bg-green-500 text-white' 
+                        : 'bg-gray-200 text-gray-700'
+                      : 'bg-white hover:bg-gray-100'
+                  } p-4 text-xl font-bold`}
+                  disabled={!!feedback}
                 >
                   {opcao}
-                  {respostaEscolhida !== null && opcao === questoes[questaoAtual].resposta && (
-                    <FaCheck className="inline-block ml-2 text-green-600" />
-                  )}
-                  {respostaEscolhida === opcao && opcao !== questoes[questaoAtual].resposta && (
-                    <FaTimes className="inline-block ml-2 text-red-600" />
-                  )}
                 </button>
               ))}
             </div>
-          </div>
-          
-          {/* Dica */}
-          <div className="text-center text-sm text-gray-500">
-            Selecione a resposta correta para continuar
-          </div>
-        </div>
-      )}
-      
-      {/* Tela de resultado */}
-      {completo && (
-        <div className="card text-center py-8">
-          <h1 className="text-3xl font-bold mb-6">Desafio Concluído!</h1>
-          
-          <div className="mb-8">
-            <FaTrophy className="text-yellow-500 text-6xl mx-auto mb-4" />
-            <h2 className="text-2xl font-bold text-[var(--primary)] mb-2">Parabéns!</h2>
-            <p className="text-lg text-gray-700 mb-6">
-              Você completou o desafio de Operações Matemáticas.
-            </p>
-          </div>
-          
-          <div className="grid grid-cols-1 sm:grid-cols-3 gap-4 max-w-2xl mx-auto mb-8">
-            <div className="bg-[var(--primary)] bg-opacity-10 p-4 rounded-lg">
-              <div className="text-3xl font-bold text-[var(--primary)]">{acertos}</div>
-              <div className="text-sm text-gray-600">Acertos</div>
-            </div>
-            <div className="bg-[var(--accent)] bg-opacity-10 p-4 rounded-lg">
-              <div className="text-3xl font-bold text-[var(--accent)]">{totalQuestoes - acertos}</div>
-              <div className="text-sm text-gray-600">Erros</div>
-            </div>
-            <div className="bg-[var(--secondary)] bg-opacity-10 p-4 rounded-lg">
-              <div className="text-3xl font-bold text-[var(--secondary)]">{formatarTempo(tempo)}</div>
-              <div className="text-sm text-gray-600">Tempo</div>
-            </div>
-          </div>
-          
-          <div className="max-w-md mx-auto mb-8">
-            <div className="bg-gray-100 p-4 rounded-lg mb-6">
-              <h3 className="font-bold mb-2">Pontuação:</h3>
-              <div className="text-4xl font-bold text-[var(--primary)]">
-                {Math.round(acertos * 100 - tempo * 0.5)}
-              </div>
-              <div className="text-sm text-gray-600">
-                Cálculo: (acertos × 100) - (tempo × 0.5)
-              </div>
-            </div>
-            
-            <div className="mb-6">
-              <h3 className="font-bold mb-2">Taxa de acertos:</h3>
-              <div className="w-full bg-gray-200 rounded-full h-4 mb-2">
-                <div 
-                  className="bg-[var(--primary)] h-4 rounded-full" 
-                  style={{ width: `${(acertos / totalQuestoes) * 100}%` }}
-                ></div>
-              </div>
-              <div className="text-sm text-gray-600">
-                {Math.round((acertos / totalQuestoes) * 100)}% de acertos
-              </div>
-            </div>
-            
-            <div className="space-y-2">
-              <button 
-                onClick={() => iniciarDesafio()} 
-                className="btn-primary w-full"
-              >
-                Tentar Novamente
-              </button>
-              <Link href="/desafios" className="btn-secondary block w-full">
-                Outros Desafios
-              </Link>
-            </div>
-          </div>
-        </div>
-      )}
+          </>
+        )}
+      </div>
     </div>
   );
 } 

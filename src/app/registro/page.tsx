@@ -6,7 +6,7 @@ import { useRouter, useSearchParams } from 'next/navigation';
 import { useForm } from 'react-hook-form';
 import { zodResolver } from '@hookform/resolvers/zod';
 import { z } from 'zod';
-import { FaUser, FaEnvelope, FaLock, FaUserGraduate, FaSchool, FaUserTie } from 'react-icons/fa';
+import { FaUser, FaEnvelope, FaLock, FaUserGraduate, FaSchool, FaUserTie, FaCog } from 'react-icons/fa';
 import { useAuth } from '@/context/AuthContext';
 
 // Schema de validação para o formulário
@@ -15,8 +15,9 @@ const registerSchema = z.object({
   email: z.string().email('Email inválido'),
   senha: z.string().min(6, 'Senha deve ter pelo menos 6 caracteres'),
   confirmarSenha: z.string(),
-  tipo: z.enum(['aluno', 'professor']),
+  tipo: z.enum(['aluno', 'professor', 'admin']),
   escola: z.string().min(3, 'Nome da escola deve ter pelo menos 3 caracteres'),
+  codigoAdmin: z.string().optional()
 }).refine(data => data.senha === data.confirmarSenha, {
   message: 'As senhas não coincidem',
   path: ['confirmarSenha']
@@ -36,6 +37,8 @@ function RegistroForm() {
   const [submitError, setSubmitError] = useState('');
   const [submitSuccess, setSubmitSuccess] = useState(false);
   const [isConvite, setIsConvite] = useState(false);
+  const [showAdminOption, setShowAdminOption] = useState(false);
+  const [codigoSecreto, setCodigoSecreto] = useState('');
   const { register: registerUser, isLoading } = useAuth();
   const router = useRouter();
   const searchParams = useSearchParams();
@@ -75,6 +78,22 @@ function RegistroForm() {
   }, [searchParams, setValue]);
 
   const tipoUsuario = watch('tipo');
+  
+  // Verificar código secreto para mostrar opção de admin
+  const verificarCodigoSecreto = (e: React.ChangeEvent<HTMLInputElement>) => {
+    const codigo = e.target.value;
+    setCodigoSecreto(codigo);
+    
+    // Código secreto para habilitar opção de admin (por exemplo, "admin123")
+    if (codigo === "admin123") {
+      setShowAdminOption(true);
+    } else {
+      setShowAdminOption(false);
+      if (tipoUsuario === 'admin') {
+        setValue('tipo', 'professor');
+      }
+    }
+  };
 
   const onSubmit = async (data: RegisterFormData) => {
     setSubmitError('');
@@ -175,8 +194,8 @@ function RegistroForm() {
               <label className="block text-sm font-medium text-gray-700 mb-1">
                 Tipo de Usuário
               </label>
-              <div className="flex space-x-4">
-                <label className="flex items-center">
+              <div className="flex space-x-4 flex-wrap">
+                <label className="flex items-center mb-2">
                   <input
                     type="radio"
                     value="aluno"
@@ -187,7 +206,7 @@ function RegistroForm() {
                   <FaUserGraduate className="mr-1 text-[var(--primary)]" />
                   Aluno
                 </label>
-                <label className="flex items-center">
+                <label className="flex items-center mb-2">
                   <input
                     type="radio"
                     value="professor"
@@ -198,6 +217,18 @@ function RegistroForm() {
                   <FaUserTie className="mr-1 text-[var(--primary)]" />
                   Professor
                 </label>
+                {showAdminOption && (
+                  <label className="flex items-center mb-2">
+                    <input
+                      type="radio"
+                      value="admin"
+                      {...register('tipo')}
+                      className="mr-2"
+                    />
+                    <FaCog className="mr-1 text-[var(--accent)]" />
+                    Administrador
+                  </label>
+                )}
               </div>
               {isConvite && (
                 <p className="text-xs text-gray-500 mt-1">
@@ -315,6 +346,28 @@ function RegistroForm() {
               {errors.confirmarSenha && (
                 <p className="text-red-500 text-sm mt-1">{errors.confirmarSenha.message}</p>
               )}
+            </div>
+            
+            <div className="mb-4">
+              <label className="block text-sm font-medium text-gray-700 mb-1" htmlFor="codigo-secreto">
+                Código de Acesso (opcional)
+              </label>
+              <div className="relative">
+                <div className="absolute left-3 top-1/2 -translate-y-1/2 text-gray-400">
+                  <FaLock />
+                </div>
+                <input
+                  id="codigo-secreto"
+                  type="text"
+                  value={codigoSecreto}
+                  onChange={verificarCodigoSecreto}
+                  className="pl-10 w-full p-3 border border-gray-300 rounded-lg focus:ring-2 focus:ring-[var(--primary)] focus:border-transparent"
+                  placeholder="Digite o código de acesso especial (se tiver)"
+                />
+              </div>
+              <p className="text-xs text-gray-500 mt-1">
+                Se você possui um código de acesso especial, digite-o aqui.
+              </p>
             </div>
             
             <button

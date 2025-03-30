@@ -2,7 +2,8 @@
 
 import { createContext, useContext, useState, useEffect, ReactNode } from 'react';
 
-type UserType = 'aluno' | 'professor';
+// Adicionar o tipo 'admin' ao UserType
+export type UserType = 'aluno' | 'professor' | 'admin';
 
 type User = {
   id: string;

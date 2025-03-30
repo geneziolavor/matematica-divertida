@@ -14,7 +14,9 @@ import {
   FaRegClock,
   FaPlus,
   FaChalkboardTeacher,
-  FaUserGraduate
+  FaUserGraduate,
+  FaMedal,
+  FaFileAlt
 } from 'react-icons/fa';
 import { useAuth } from '@/context/AuthContext';
 
@@ -169,6 +171,21 @@ export default function Dashboard() {
     if (filtro === 'bloqueados') return desafio.bloqueado;
     return true;
   });
+
+  // Verificar se o usuário pode acessar determinada área
+  const podeAcessar = (area: string): boolean => {
+    if (!user) return false;
+    
+    switch (area) {
+      case 'alunos':
+      case 'desafios':
+      case 'relatorios':
+      case 'resumo':
+        return user.tipo === 'professor';
+      default:
+        return true;
+    }
+  };
 
   if (isLoading) {
     return (

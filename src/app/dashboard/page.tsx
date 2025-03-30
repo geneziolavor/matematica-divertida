@@ -16,7 +16,8 @@ import {
   FaChalkboardTeacher,
   FaUserGraduate,
   FaMedal,
-  FaFileAlt
+  FaFileAlt,
+  FaCog
 } from 'react-icons/fa';
 import { useAuth } from '@/context/AuthContext';
 
@@ -182,6 +183,8 @@ export default function Dashboard() {
       case 'relatorios':
       case 'resumo':
         return user.tipo === 'professor';
+      case 'admin':
+        return user.tipo === 'admin';
       default:
         return true;
     }
@@ -517,6 +520,114 @@ export default function Dashboard() {
             </>
           )}
         </div>
+      </div>
+
+      {/* Menu lateral */}
+      <div className="w-64 bg-white shadow-md hidden md:block">
+        <div className="p-4 border-b border-gray-200">
+          <h2 className="text-lg font-bold">Menu</h2>
+        </div>
+        <nav className="p-4">
+          <ul className="space-y-2">
+            <li>
+              <Link 
+                href="/desafios" 
+                className="flex items-center p-2 rounded-lg hover:bg-gray-100"
+              >
+                <FaTrophy className="mr-3 text-[var(--primary)]" />
+                <span>Desafios</span>
+              </Link>
+            </li>
+            
+            <li>
+              <Link 
+                href="/ranking" 
+                className="flex items-center p-2 rounded-lg hover:bg-gray-100"
+              >
+                <FaMedal className="mr-3 text-[var(--accent)]" />
+                <span>Ranking</span>
+              </Link>
+            </li>
+            
+            {podeAcessar('resumo') && (
+              <li>
+                <Link 
+                  href="/professor/resumo" 
+                  className="flex items-center p-2 rounded-lg hover:bg-gray-100"
+                >
+                  <FaChartLine className="mr-3 text-green-600" />
+                  <span>Resumo da Turma</span>
+                </Link>
+              </li>
+            )}
+            
+            {podeAcessar('alunos') && (
+              <li>
+                <Link 
+                  href="/professor/gerenciar" 
+                  className="flex items-center p-2 rounded-lg hover:bg-gray-100"
+                >
+                  <FaUsers className="mr-3 text-blue-600" />
+                  <span>Gerenciar Alunos</span>
+                </Link>
+              </li>
+            )}
+            
+            {podeAcessar('desafios') && (
+              <li>
+                <Link 
+                  href="/professor/desafios/criar" 
+                  className="flex items-center p-2 rounded-lg hover:bg-gray-100"
+                >
+                  <FaPlus className="mr-3 text-purple-600" />
+                  <span>Criar Desafio</span>
+                </Link>
+              </li>
+            )}
+            
+            {podeAcessar('relatorios') && (
+              <li>
+                <Link 
+                  href="/professor/relatorios" 
+                  className="flex items-center p-2 rounded-lg hover:bg-gray-100"
+                >
+                  <FaFileAlt className="mr-3 text-amber-600" />
+                  <span>Relatórios</span>
+                </Link>
+              </li>
+            )}
+
+            {podeAcessar('admin') && (
+              <li>
+                <Link 
+                  href="/admin/config" 
+                  className="flex items-center p-2 rounded-lg hover:bg-gray-100"
+                >
+                  <FaCog className="mr-3 text-gray-600" />
+                  <span>Configurações</span>
+                </Link>
+              </li>
+            )}
+          </ul>
+        </nav>
+      </div>
+
+      {/* Blocos do Dashboard */}
+      <div className="grid grid-cols-1 md:grid-cols-2 lg:grid-cols-3 gap-6 mb-8">
+        
+        {podeAcessar('admin') && (
+          <Link href="/admin/config" className="card p-6 hover:shadow-lg transition-shadow">
+            <div className="flex justify-between items-start mb-4">
+              <div className="p-3 rounded-lg bg-gray-100">
+                <FaCog className="text-gray-600 text-xl" />
+              </div>
+              <span className="text-sm text-gray-500">Administração</span>
+            </div>
+            <h2 className="text-xl font-bold mb-2">Configurações do Site</h2>
+            <p className="text-gray-600 mb-4">Configure informações de contato e outras configurações do site.</p>
+            <span className="text-gray-600 font-medium">Configurar →</span>
+          </Link>
+        )}
       </div>
     </div>
   );

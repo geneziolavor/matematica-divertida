@@ -1,7 +1,7 @@
 'use client';
 
 import Link from 'next/link';
-import { FaCalculator, FaEnvelope, FaInstagram, FaFacebook } from 'react-icons/fa';
+import { FaCalculator, FaEnvelope, FaInstagram, FaWhatsapp } from 'react-icons/fa';
 
 export default function Footer() {
   return (
@@ -47,18 +47,42 @@ export default function Footer() {
           <div>
             <h3 className="text-lg font-semibold mb-4">Contato</h3>
             <div className="flex space-x-4 mb-4">
-              <a href="#" className="text-white hover:text-[var(--accent)] transition-colors">
-                <FaFacebook className="h-5 w-5" />
+              <a 
+                href="https://wa.me/5511987654321" 
+                target="_blank" 
+                rel="noopener noreferrer" 
+                className="text-white hover:text-[var(--accent)] transition-colors"
+                aria-label="WhatsApp"
+              >
+                <FaWhatsapp className="h-6 w-6" />
               </a>
-              <a href="#" className="text-white hover:text-[var(--accent)] transition-colors">
-                <FaInstagram className="h-5 w-5" />
+              <a 
+                href="https://instagram.com/matematica.divertida" 
+                target="_blank" 
+                rel="noopener noreferrer" 
+                className="text-white hover:text-[var(--accent)] transition-colors"
+                aria-label="Instagram"
+              >
+                <FaInstagram className="h-6 w-6" />
               </a>
-              <a href="mailto:contato@matematicadivertida.com" className="text-white hover:text-[var(--accent)] transition-colors">
-                <FaEnvelope className="h-5 w-5" />
+              <a 
+                href="mailto:contato@matematicadivertida.com" 
+                className="text-white hover:text-[var(--accent)] transition-colors"
+                aria-label="Email"
+              >
+                <FaEnvelope className="h-6 w-6" />
               </a>
             </div>
             <p className="text-sm opacity-80">
               Estamos sempre disponíveis para ajudar!
+            </p>
+            <p className="text-sm mt-2">
+              <a 
+                href="mailto:contato@matematicadivertida.com" 
+                className="text-[var(--accent)] hover:underline"
+              >
+                contato@matematicadivertida.com
+              </a>
             </p>
           </div>
         </div>

@@ -4,9 +4,9 @@ import Link from 'next/link';
 import { FaCalculator, FaEnvelope, FaInstagram, FaWhatsapp } from 'react-icons/fa';
 
 // Dados de contato fixos para todo o site
-const WHATSAPP = 'https://wa.me/5511987654321';
-const INSTAGRAM = 'https://instagram.com/matematica.divertida';
-const EMAIL = 'contato@matematicadivertida.com';
+const WHATSAPP = 'https://wa.me/88988411890';
+const INSTAGRAM = 'https://instagram.com/cluberoboticacriativaita';
+const EMAIL = 'contato@itaprojetotablet.com';
 
 export default function Footer() {
   return (

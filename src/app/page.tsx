@@ -1,8 +1,40 @@
+'use client';
+
+import { useState, useEffect } from 'react';
 import Link from 'next/link';
 import Image from 'next/image';
 import { FaCalculator, FaTrophy, FaUsers, FaBookOpen } from 'react-icons/fa';
 
 export default function Home() {
+  const [status, setStatus] = useState({ 
+    loading: true, 
+    connected: false, 
+    error: null as string | null 
+  });
+
+  useEffect(() => {
+    async function checkConnection() {
+      try {
+        const response = await fetch('/api/test');
+        const data = await response.json();
+        
+        setStatus({
+          loading: false,
+          connected: data.connected,
+          error: data.error || null
+        });
+      } catch (error) {
+        setStatus({
+          loading: false,
+          connected: false,
+          error: error instanceof Error ? error.message : 'Erro desconhecido'
+        });
+      }
+    }
+    
+    checkConnection();
+  }, []);
+
   return (
     <div className="flex flex-col">
       {/* Hero Section */}
@@ -19,6 +51,20 @@ export default function Home() {
             <Link href="/desafios" className="btn-secondary text-center">
               Ver Desafios
             </Link>
+          </div>
+          
+          {/* Status da Conexão */}
+          <div className="mt-8 text-sm bg-white text-gray-800 p-3 rounded-lg inline-block">
+            {status.loading ? (
+              <p>Verificando conexão com o banco de dados...</p>
+            ) : status.connected ? (
+              <p className="text-green-600 font-semibold">✓ Conectado ao MongoDB</p>
+            ) : (
+              <div>
+                <p className="text-red-600 font-semibold">✗ Erro de conexão com o banco de dados</p>
+                {status.error && <p className="text-xs mt-1">{status.error}</p>}
+              </div>
+            )}
           </div>
         </div>
       </section>

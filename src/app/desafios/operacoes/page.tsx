@@ -255,187 +255,190 @@ export default function DesafioOperacoes() {
     return `${minutos.toString().padStart(2, '0')}:${segs.toString().padStart(2, '0')}`;
   };
   
-  // Componente de carregamento
-  if (carregando) {
-    return (
-      <div className="flex min-h-screen flex-col items-center justify-center">
-        <h1 className="text-2xl font-bold mb-4">Carregando desafio...</h1>
-        <div className="animate-pulse bg-blue-400 h-4 w-32 rounded"></div>
-      </div>
-    );
-  }
-  
-  // Tela inicial (seleção de dificuldade)
-  if (!desafioIniciado) {
-    return (
+  // Renderização do componente
+  return (
+    <div className="min-h-screen bg-gradient-to-b from-blue-100 to-purple-100">
       <div className="container mx-auto px-4 py-8">
-        <div className="flex items-center mb-6">
-          <Link href="/desafios" className="text-gray-600 hover:text-gray-900 mr-2">
-            <FaArrowLeft />
+        {/* Cabeçalho */}
+        <div className="mb-6 flex items-center justify-between">
+          <Link href="/desafios" className="flex items-center text-blue-600 hover:text-blue-800">
+            <FaArrowLeft className="mr-2" />
+            <span>Voltar aos desafios</span>
           </Link>
-          <h1 className="text-2xl font-bold">Desafio de Operações Matemáticas</h1>
-        </div>
-        
-        <div className="card max-w-lg mx-auto p-6">
-          <h2 className="text-xl font-bold mb-4 text-center">Escolha a Dificuldade</h2>
-          
-          <div className="space-y-3 mb-6">
-            <button 
-              onClick={() => setDificuldade('facil')}
-              className={`btn w-full ${dificuldade === 'facil' ? 'bg-green-500 text-white' : 'bg-gray-100'}`}
-            >
-              Fácil (Adição e Subtração)
-            </button>
-            
-            <button 
-              onClick={() => setDificuldade('medio')}
-              className={`btn w-full ${dificuldade === 'medio' ? 'bg-yellow-500 text-white' : 'bg-gray-100'}`}
-            >
-              Médio (+ Multiplicação)
-            </button>
-            
-            <button 
-              onClick={() => setDificuldade('dificil')}
-              className={`btn w-full ${dificuldade === 'dificil' ? 'bg-red-500 text-white' : 'bg-gray-100'}`}
-            >
-              Difícil (+ Divisão)
-            </button>
+          <div className="flex items-center text-gray-700">
+            <FaClock className="mr-2 text-blue-600" />
+            <span className="font-mono text-lg font-bold">{formatarTempo(timer)}</span>
           </div>
-          
-          <div className="text-center">
-            <p className="mb-4 text-gray-600">
-              Resolva 20 operações matemáticas o mais rápido possível.
-              Quanto mais rápido você responder, mais pontos ganhará!
-            </p>
+        </div>
+
+        {/* Título */}
+        <h1 className="mb-8 text-center text-3xl font-bold text-indigo-700 md:text-4xl">
+          Desafio de Operações Matemáticas
+        </h1>
+
+        {carregando ? (
+          <div className="flex h-64 items-center justify-center">
+            <div className="h-16 w-16 animate-spin rounded-full border-b-4 border-t-4 border-blue-600"></div>
+          </div>
+        ) : desafioCompleto ? (
+          /* Tela de conclusão do desafio */
+          <div className="rounded-xl bg-white p-6 shadow-lg">
+            <div className="mb-6 text-center">
+              <div className="mb-4 flex justify-center">
+                <div className="inline-flex h-20 w-20 items-center justify-center rounded-full bg-green-100">
+                  <FaStar className="h-10 w-10 text-yellow-500" />
+                </div>
+              </div>
+              <h2 className="mb-2 text-2xl font-bold text-indigo-700">Parabéns!</h2>
+              <p className="text-lg text-gray-700">Você completou o desafio de operações matemáticas!</p>
+            </div>
+
+            <div className="mb-6 space-y-4 rounded-lg bg-indigo-50 p-4">
+              <div className="flex justify-between border-b border-indigo-100 pb-2">
+                <span className="font-medium">Respostas corretas:</span>
+                <span className="font-bold text-green-600">{respostasCorretas} / 20</span>
+              </div>
+              <div className="flex justify-between border-b border-indigo-100 pb-2">
+                <span className="font-medium">Pontuação:</span>
+                <span className="font-bold text-blue-600">{pontuacao} pontos</span>
+              </div>
+              <div className="flex justify-between">
+                <span className="font-medium">Tempo total:</span>
+                <span className="font-mono font-bold text-purple-600">{formatarTempo(timer)}</span>
+              </div>
+            </div>
+
+            <div className="flex flex-col space-y-4">
+              <button
+                onClick={iniciarDesafio}
+                className="w-full rounded-lg bg-indigo-600 py-3 text-lg font-semibold text-white transition-all hover:bg-indigo-700 focus:ring-4 focus:ring-indigo-300"
+              >
+                Jogar novamente
+              </button>
+              <Link
+                href="/desafios"
+                className="w-full rounded-lg border border-gray-300 bg-white py-3 text-center text-lg font-semibold text-gray-700 transition-all hover:bg-gray-50 focus:ring-4 focus:ring-gray-200"
+              >
+                Voltar aos desafios
+              </Link>
+            </div>
+          </div>
+        ) : !desafioIniciado ? (
+          /* Tela inicial para selecionar dificuldade */
+          <div className="rounded-xl bg-white p-6 shadow-lg">
+            <h2 className="mb-6 text-center text-2xl font-bold text-indigo-700">Escolha a dificuldade</h2>
             
-            <button 
+            <div className="mb-8 grid grid-cols-1 gap-4 md:grid-cols-3">
+              {(['facil', 'medio', 'dificil'] as Dificuldade[]).map((nivel) => (
+                <button
+                  key={nivel}
+                  onClick={() => setDificuldade(nivel)}
+                  className={`rounded-lg px-6 py-4 text-lg font-bold transition-all ${
+                    dificuldade === nivel
+                      ? 'bg-indigo-600 text-white ring-4 ring-indigo-300'
+                      : 'bg-gray-100 text-gray-700 hover:bg-gray-200'
+                  }`}
+                >
+                  {nivel === 'facil' ? 'Fácil' : nivel === 'medio' ? 'Médio' : 'Difícil'}
+                </button>
+              ))}
+            </div>
+            
+            <div className="mb-6 rounded-lg bg-blue-50 p-4 text-sm text-gray-700">
+              <h3 className="mb-2 font-bold text-blue-700">Detalhes da dificuldade:</h3>
+              {dificuldade === 'facil' && (
+                <p>Números de 1 a 10 com operações de adição e subtração.</p>
+              )}
+              {dificuldade === 'medio' && (
+                <p>Números de 1 a 25 com operações de adição, subtração e multiplicação.</p>
+              )}
+              {dificuldade === 'dificil' && (
+                <p>Números de 1 a 50 com todas as operações (adição, subtração, multiplicação e divisão).</p>
+              )}
+            </div>
+            
+            <button
               onClick={iniciarDesafio}
-              className="btn-primary px-8 py-3"
+              className="w-full rounded-lg bg-green-600 py-3 text-lg font-semibold text-white transition-all hover:bg-green-700 focus:ring-4 focus:ring-green-300"
             >
               Iniciar Desafio
             </button>
           </div>
-        </div>
-      </div>
-    );
-  }
-  
-  // Tela de desafio completo
-  if (desafioCompleto) {
-    return (
-      <div className="container mx-auto px-4 py-8">
-        <h1 className="text-2xl font-bold mb-6 text-center">Desafio Concluído!</h1>
-        
-        <div className="card max-w-lg mx-auto p-6 text-center">
-          <div className="text-5xl mb-4 text-green-500">🏆</div>
-          
-          <h2 className="text-xl font-bold mb-2">Resultados</h2>
-          
-          <div className="bg-gray-100 rounded-lg p-4 mb-6">
-            <div className="grid grid-cols-2 gap-4">
-              <div>
-                <p className="text-gray-600">Pontuação</p>
-                <p className="text-2xl font-bold">{pontuacao}</p>
+        ) : (
+          /* Tela do desafio em andamento */
+          <div className="rounded-xl bg-white p-6 shadow-lg">
+            {/* Progresso */}
+            <div className="mb-6">
+              <div className="flex justify-between">
+                <span className="text-sm font-medium text-gray-600">Questão {questoesRespondidas + 1} de 20</span>
+                <span className="text-sm font-medium text-gray-600">Corretas: {respostasCorretas}</span>
               </div>
-              <div>
-                <p className="text-gray-600">Tempo Total</p>
-                <p className="text-2xl font-bold">{formatarTempo(timer)}</p>
-              </div>
-              <div>
-                <p className="text-gray-600">Acertos</p>
-                <p className="text-2xl font-bold">{respostasCorretas}/20</p>
-              </div>
-              <div>
-                <p className="text-gray-600">Precisão</p>
-                <p className="text-2xl font-bold">{Math.round((respostasCorretas / 20) * 100)}%</p>
+              <div className="mt-2 h-2.5 w-full rounded-full bg-gray-200">
+                <div
+                  className="h-2.5 rounded-full bg-indigo-600"
+                  style={{ width: `${(questoesRespondidas / 20) * 100}%` }}
+                ></div>
               </div>
             </div>
-          </div>
-          
-          <div className="space-y-3">
-            <button 
-              onClick={iniciarDesafio}
-              className="btn-primary w-full"
-            >
-              Jogar Novamente
-            </button>
-            
-            <Link href="/desafios" className="btn-secondary w-full block text-center">
-              Voltar para Desafios
-            </Link>
-          </div>
-        </div>
-      </div>
-    );
-  }
-  
-  // Tela do desafio em andamento
-  return (
-    <div className="container mx-auto px-4 py-8">
-      <div className="flex justify-between items-center mb-6">
-        <Link href="/desafios" className="text-gray-600 hover:text-gray-900">
-          <FaArrowLeft />
-        </Link>
-        
-        <div className="flex items-center">
-          <FaClock className="mr-2 text-gray-600" />
-          <span className="font-mono">{formatarTempo(timer)}</span>
-        </div>
-        
-        <div className="flex items-center">
-          <FaStar className="mr-2 text-yellow-500" />
-          <span className="font-bold">{pontuacao}</span>
-        </div>
-      </div>
-      
-      <div className="card max-w-lg mx-auto p-6">
-        <div className="mb-2 text-center">
-          <span className="text-sm text-gray-600">Questão {questoesRespondidas + 1}/20</span>
-          <div className="h-2 bg-gray-200 rounded-full mt-1">
-            <div 
-              className="h-2 bg-blue-500 rounded-full" 
-              style={{ width: `${(questoesRespondidas / 20) * 100}%` }}
-            ></div>
-          </div>
-        </div>
-        
-        {questaoAtual && (
-          <>
-            <div className="text-center mb-8">
-              <h2 className="text-3xl font-bold mb-4">
-                {questaoAtual.num1} {questaoAtual.operacao} {questaoAtual.num2} = ?
-              </h2>
-              
-              {feedback && (
+
+            {questaoAtual && (
+              <>
+                {/* Questão */}
                 <div 
-                  className={`text-white p-2 rounded-md ${
-                    feedback === 'correto' ? 'bg-green-500' : 'bg-red-500'
-                  }`}
+                  className="mb-8 rounded-xl bg-gradient-to-r from-indigo-500 to-purple-600 p-8 text-center shadow-lg"
                 >
-                  {feedback === 'correto' ? 'Correto!' : 'Incorreto!'}
+                  <div className="mb-4 text-xl font-bold text-white md:text-2xl">
+                    <span className="inline-block animate-fadeInUp transform transition-all">Quanto é</span>
+                  </div>
+                  <div className="flex flex-col items-center justify-center">
+                    <div className="mb-6 inline-block rounded-xl bg-white p-6 shadow-md">
+                      <span className="text-3xl font-bold text-gray-800 md:text-5xl">
+                        {questaoAtual.num1} {questaoAtual.operacao} {questaoAtual.num2}
+                      </span>
+                    </div>
+                  </div>
                 </div>
-              )}
-            </div>
-            
-            <div className="grid grid-cols-2 gap-3">
-              {questaoAtual.opcoes.map((opcao, index) => (
-                <button
-                  key={index}
-                  onClick={() => verificarResposta(opcao)}
-                  className={`btn ${
-                    feedback 
-                      ? opcao === questaoAtual.resposta 
-                        ? 'bg-green-500 text-white' 
-                        : 'bg-gray-200 text-gray-700'
-                      : 'bg-white hover:bg-gray-100'
-                  } p-4 text-xl font-bold`}
-                  disabled={!!feedback}
-                >
-                  {opcao}
-                </button>
-              ))}
-            </div>
-          </>
+
+                {/* Opções de resposta */}
+                <div className="grid grid-cols-2 gap-4">
+                  {questaoAtual.opcoes.map((opcao, index) => (
+                    <button
+                      key={index}
+                      onClick={() => verificarResposta(opcao)}
+                      className={`
+                        relative overflow-hidden rounded-lg py-4 text-xl font-bold shadow-md transition-all
+                        ${
+                          feedback 
+                            ? opcao === questaoAtual.resposta
+                              ? 'bg-green-500 text-white'
+                              : 'bg-gray-200 text-gray-600'
+                            : 'bg-indigo-100 text-indigo-800 hover:bg-indigo-200'
+                        }
+                      `}
+                      disabled={feedback !== null}
+                    >
+                      {opcao}
+                      {feedback && opcao === questaoAtual.resposta && (
+                        <span className="absolute inset-0 flex items-center justify-center bg-green-500 bg-opacity-20">
+                          ✓
+                        </span>
+                      )}
+                    </button>
+                  ))}
+                </div>
+
+                {/* Feedback visual */}
+                {feedback && (
+                  <div className={`
+                    mt-6 rounded-lg px-4 py-3 text-center text-lg font-bold
+                    ${feedback === 'correto' ? 'bg-green-100 text-green-800' : 'bg-red-100 text-red-800'}
+                  `}>
+                    {feedback === 'correto' ? 'Resposta correta! 👍' : 'Resposta incorreta. 😢'}
+                  </div>
+                )}
+              </>
+            )}
+          </div>
         )}
       </div>
     </div>
